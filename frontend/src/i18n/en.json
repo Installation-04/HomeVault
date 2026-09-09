@@ -42,5 +42,9 @@
   "common.cancel": "Cancel",
   "common.delete": "Delete",
   "common.edit": "Edit",
-  "common.loading": "Loading..."
+  "common.loading": "Loading...",
+  "install.prompt": "Install HomeVault on this device for quick access.",
+  "install.ios_hint": "Install HomeVault: tap Share, then \"Add to Home Screen\".",
+  "install.action": "Install",
+  "documents.take_photo": "Take photo"
 }

@@ -99,7 +99,27 @@ export default function Documents() {
             value={form.tags}
             onChange={(e) => setForm({ ...form, tags: e.target.value })}
           />
-          <input type="file" className="border rounded px-3 py-2" onChange={(e) => setFile(e.target.files[0])} required />
+          <div className="flex flex-wrap gap-2 items-center sm:col-span-2">
+            <input
+              type="file"
+              className="border rounded px-3 py-2 w-full sm:w-auto sm:flex-1 min-w-0"
+              onChange={(e) => setFile(e.target.files[0])}
+            />
+            {/* `capture` opens the camera directly on iOS/Android instead of
+                the file picker — the fastest path for a receipt or warranty
+                label photo. Desktop browsers just ignore the attribute. */}
+            <label className="border rounded px-3 py-2 text-sm cursor-pointer whitespace-nowrap bg-gray-50 hover:bg-gray-100">
+              📷 {t('documents.take_photo')}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => setFile(e.target.files[0])}
+              />
+            </label>
+          </div>
+          {file && <p className="text-xs text-gray-500 -mt-2">{file.name}</p>}
           <div className="sm:col-span-2 flex gap-2">
             <button type="submit" className="bg-brand-600 text-white px-3 py-2 rounded text-sm">
               {t('common.save')}
