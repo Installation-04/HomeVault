@@ -163,6 +163,8 @@ export default function Documents() {
         <QrModal
           title={t('qr.document_title')}
           subtitle={qrDoc.title}
+          code={`DOC-${qrDoc.id}`}
+          meta={[qrDoc.category]}
           value={`${window.location.origin}/documents/${qrDoc.id}`}
           onClose={() => setQrDoc(null)}
         />

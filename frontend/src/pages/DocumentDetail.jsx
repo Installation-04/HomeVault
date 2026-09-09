@@ -51,6 +51,8 @@ export default function DocumentDetail() {
         <QrModal
           title={t('qr.document_title')}
           subtitle={doc.title}
+          code={`DOC-${doc.id}`}
+          meta={[doc.category]}
           value={`${window.location.origin}/documents/${doc.id}`}
           onClose={() => setShowQr(false)}
         />

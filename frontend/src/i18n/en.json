@@ -69,5 +69,9 @@
   "equipment.maintenance_log": "Maintenance log",
   "equipment.log_description": "What was done",
   "equipment.performed_by": "Performed by",
-  "equipment.log_maintenance": "Log maintenance"
+  "equipment.log_maintenance": "Log maintenance",
+  "qr.label_size": "Label size",
+  "qr.size_standard": "Standard (print / save as PDF)",
+  "qr.size_custom": "Custom size",
+  "qr.thermal_hint": "Select your label/thermal printer in the print dialog. For an exact fit, its paper size should match the one chosen here."
 }

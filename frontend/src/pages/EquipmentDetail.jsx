@@ -298,6 +298,8 @@ export default function EquipmentDetail() {
         <QrModal
           title={t('qr.equipment_title')}
           subtitle={item.name}
+          code={`EQ-${item.id}`}
+          meta={[[form.brand, form.model_number].filter(Boolean).join(' · '), form.location]}
           value={`${window.location.origin}/equipment/${item.id}`}
           onClose={() => setShowQr(false)}
         />
