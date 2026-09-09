@@ -1,0 +1,19 @@
+services:
+  homevault:
+    build: .
+    image: homevault:latest
+    container_name: homevault
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${HOST_PORT:-8080}:4000"
+    volumes:
+      # Point this at a NAS-backed path for durable storage of the
+      # SQLite database, uploaded documents/photos, and backups.
+      - ./data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
