@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext.jsx';
+import QrModal from '../components/QrModal.jsx';
 
 export default function Login() {
   const { t } = useTranslation();
   const { login, setup } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [needsSetup, setNeedsSetup] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [showInstallQr, setShowInstallQr] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -22,7 +25,7 @@ export default function Login() {
       } else {
         await login(email, password);
       }
-      navigate('/');
+      navigate(location.state?.from?.pathname || '/', { replace: true });
     } catch (err) {
       setError(err.message);
     }
@@ -75,7 +78,26 @@ export default function Login() {
             {needsSetup ? t('login.title') : t('login.setup_title')}
           </button>
         </form>
+
+        {/* Desktop users setting this up can scan this with a phone to open
+            the app there and install it as a PWA. */}
+        <button
+          type="button"
+          onClick={() => setShowInstallQr(true)}
+          className="w-full text-center text-xs text-brand-600 hover:underline mt-4"
+        >
+          {t('qr.install_link')}
+        </button>
       </div>
+
+      {showInstallQr && (
+        <QrModal
+          title={t('qr.install_title')}
+          value={window.location.origin}
+          subtitle={window.location.origin}
+          onClose={() => setShowInstallQr(false)}
+        />
+      )}
     </div>
   );
 }
