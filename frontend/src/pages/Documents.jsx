@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useProperties } from '../property/PropertyContext.jsx';
 import { api } from '../api/client.js';
+import QrModal from '../components/QrModal.jsx';
 
 const CATEGORIES = ['invoice', 'warranty', 'insurance', 'contract', 'photo', 'maintenance', 'tax', 'other'];
 
@@ -13,6 +15,7 @@ export default function Documents() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: '', category: 'other', document_date: '', expiry_date: '', tags: '' });
   const [file, setFile] = useState(null);
+  const [qrDoc, setQrDoc] = useState(null);
 
   const load = () => {
     if (!currentId) return;
@@ -134,13 +137,16 @@ export default function Documents() {
       <div className="bg-white rounded-lg shadow divide-y">
         {documents.map((d) => (
           <div key={d.id} className="p-3 flex items-center justify-between gap-2">
-            <div>
-              <p className="font-medium text-sm">{d.title}</p>
+            <Link to={`/documents/${d.id}`} className="min-w-0">
+              <p className="font-medium text-sm hover:text-brand-700 truncate">{d.title}</p>
               <p className="text-xs text-gray-500">
                 {d.category} · {d.document_date || '—'} {d.expiry_date ? `· exp ${d.expiry_date}` : ''}
               </p>
-            </div>
-            <div className="flex gap-3 text-sm">
+            </Link>
+            <div className="flex gap-3 text-sm shrink-0">
+              <button onClick={() => setQrDoc(d)} className="text-brand-700 hover:underline">
+                {t('documents.qr')}
+              </button>
               <a href={api.documents.downloadUrl(d.id)} className="text-brand-700 hover:underline">
                 {t('documents.download')}
               </a>
@@ -152,6 +158,15 @@ export default function Documents() {
         ))}
         {documents.length === 0 && <p className="p-4 text-sm text-gray-400">—</p>}
       </div>
+
+      {qrDoc && (
+        <QrModal
+          title={t('qr.document_title')}
+          subtitle={qrDoc.title}
+          value={`${window.location.origin}/documents/${qrDoc.id}`}
+          onClose={() => setQrDoc(null)}
+        />
+      )}
     </div>
   );
 }

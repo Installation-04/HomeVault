@@ -46,5 +46,10 @@
   "install.prompt": "Installez HomeVault sur cet appareil pour un accès rapide.",
   "install.ios_hint": "Installez HomeVault : appuyez sur Partager, puis « Sur l'écran d'accueil ».",
   "install.action": "Installer",
-  "documents.take_photo": "Prendre une photo"
+  "documents.take_photo": "Prendre une photo",
+  "documents.qr": "Code QR",
+  "qr.print": "Imprimer",
+  "qr.document_title": "Scannez pour ouvrir ce document",
+  "qr.install_link": "📱 Scannez pour ouvrir sur votre téléphone",
+  "qr.install_title": "Ouvrir HomeVault sur votre téléphone"
 }

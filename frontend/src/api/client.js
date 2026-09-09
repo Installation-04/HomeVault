@@ -51,6 +51,7 @@ export const api = {
       const qs = new URLSearchParams(params).toString();
       return request(`/documents/property/${propertyId}${qs ? `?${qs}` : ''}`);
     },
+    get: (id) => request(`/documents/${id}`),
     upload: (formData) => request('/documents', { method: 'POST', body: formData, isForm: true }),
     update: (id, data) => request(`/documents/${id}`, { method: 'PUT', body: data }),
     remove: (id) => request(`/documents/${id}`, { method: 'DELETE' }),
