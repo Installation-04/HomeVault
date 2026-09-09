@@ -2,9 +2,38 @@ import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext.jsx';
 import PropertySwitcher from './PropertySwitcher.jsx';
+import InstallPrompt from './InstallPrompt.jsx';
 
 const navItem = ({ isActive }) =>
   `px-3 py-2 rounded-md text-sm font-medium ${isActive ? 'bg-brand-600 text-white' : 'text-gray-700 hover:bg-brand-50'}`;
+
+const tabItem = ({ isActive }) =>
+  `flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 text-[11px] font-medium ${
+    isActive ? 'text-brand-700' : 'text-gray-500'
+  }`;
+
+const icons = {
+  dashboard: (
+    <path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+  ),
+  documents: (
+    <path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm7 0v4h4M9 12h6M9 16h6" />
+  ),
+  calendar: (
+    <path d="M4 6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6ZM4 10h16M8 3v4M16 3v4" />
+  ),
+  expenses: (
+    <path d="M12 3v18M17 6.5c0-1.4-1.8-2.5-5-2.5S7 5.1 7 6.5 8.8 9 12 9s5 1.1 5 2.5-1.8 2.5-5 2.5-5-1.1-5-2.5" />
+  ),
+};
+
+function TabIcon({ name }) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      {icons[name]}
+    </svg>
+  );
+}
 
 export default function Layout({ children }) {
   const { t, i18n } = useTranslation();
@@ -12,11 +41,14 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="bg-white border-b sticky top-0 z-10">
+      <header
+        className="bg-white border-b sticky top-0 z-10"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-4">
             <span className="text-lg font-bold text-brand-700">{t('app_name')}</span>
-            <nav className="flex gap-1">
+            <nav className="hidden sm:flex gap-1">
               <NavLink to="/" end className={navItem}>{t('nav.dashboard')}</NavLink>
               <NavLink to="/documents" className={navItem}>{t('nav.documents')}</NavLink>
               <NavLink to="/calendar" className={navItem}>{t('nav.calendar')}</NavLink>
@@ -43,7 +75,34 @@ export default function Layout({ children }) {
           </div>
         </div>
       </header>
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">{children}</main>
+
+      <InstallPrompt />
+
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6 pb-20 sm:pb-6">{children}</main>
+
+      {/* Mobile bottom tab bar — the primary nav on phones, where a cramped
+          top row of text links doesn't hold up under one-handed use. */}
+      <nav
+        className="sm:hidden fixed bottom-0 inset-x-0 z-10 bg-white border-t flex"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <NavLink to="/" end className={tabItem}>
+          <TabIcon name="dashboard" />
+          {t('nav.dashboard')}
+        </NavLink>
+        <NavLink to="/documents" className={tabItem}>
+          <TabIcon name="documents" />
+          {t('nav.documents')}
+        </NavLink>
+        <NavLink to="/calendar" className={tabItem}>
+          <TabIcon name="calendar" />
+          {t('nav.calendar')}
+        </NavLink>
+        <NavLink to="/expenses" className={tabItem}>
+          <TabIcon name="expenses" />
+          {t('nav.expenses')}
+        </NavLink>
+      </nav>
     </div>
   );
 }

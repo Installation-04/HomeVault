@@ -42,5 +42,9 @@
   "common.cancel": "Annuler",
   "common.delete": "Supprimer",
   "common.edit": "Modifier",
-  "common.loading": "Chargement..."
+  "common.loading": "Chargement...",
+  "install.prompt": "Installez HomeVault sur cet appareil pour un accès rapide.",
+  "install.ios_hint": "Installez HomeVault : appuyez sur Partager, puis « Sur l'écran d'accueil ».",
+  "install.action": "Installer",
+  "documents.take_photo": "Prendre une photo"
 }
