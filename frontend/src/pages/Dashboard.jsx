@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client.js';
+import { useProperties } from '../property/PropertyContext.jsx';
 
 export default function Dashboard() {
   const { t } = useTranslation();
+  const { properties } = useProperties();
   const [summary, setSummary] = useState(null);
 
   useEffect(() => {
     api.dashboard().then(setSummary);
-  }, []);
+  }, [properties]);
 
   if (!summary) return <p>{t('common.loading')}</p>;
   if (summary.length === 0) return <p className="text-gray-500">{t('dashboard.no_properties')}</p>;
