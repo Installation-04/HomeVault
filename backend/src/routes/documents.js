@@ -44,7 +44,9 @@ documentsRouter.get('/property/:propertyId', requirePropertyAccess(), (req, res)
   res.json(db.prepare(sql).all(...params));
 });
 
-documentsRouter.post('/', requirePropertyAccess({ minRole: 'owner' }), upload.single('file'), (req, res) => {
+// multer parses the multipart body (populating req.body.property_id) before
+// access control runs, since form fields aren't available until then.
+documentsRouter.post('/', upload.single('file'), requirePropertyAccess({ minRole: 'owner' }), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'file required' });
   const { title, category, document_date, expiry_date, notes, tags } = req.body;
   const info = db
