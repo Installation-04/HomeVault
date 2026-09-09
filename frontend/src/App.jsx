@@ -6,6 +6,8 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Documents from './pages/Documents.jsx';
 import DocumentDetail from './pages/DocumentDetail.jsx';
+import Equipment from './pages/Equipment.jsx';
+import EquipmentDetail from './pages/EquipmentDetail.jsx';
 import Calendar from './pages/Calendar.jsx';
 import Expenses from './pages/Expenses.jsx';
 
@@ -31,6 +33,8 @@ function AppRoutes() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/documents" element={<Documents />} />
                   <Route path="/documents/:id" element={<DocumentDetail />} />
+                  <Route path="/equipment" element={<Equipment />} />
+                  <Route path="/equipment/:id" element={<EquipmentDetail />} />
                   <Route path="/calendar" element={<Calendar />} />
                   <Route path="/expenses" element={<Expenses />} />
                 </Routes>

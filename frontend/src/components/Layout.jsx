@@ -19,6 +19,9 @@ const icons = {
   documents: (
     <path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm7 0v4h4M9 12h6M9 16h6" />
   ),
+  equipment: (
+    <path d="m14.7 6.3 3 3-7.4 7.4a3 3 0 0 1-2.1.9H5v-3.2a3 3 0 0 1 .9-2.1l7.4-7.4a2.1 2.1 0 0 1 3 0l.7.7a2.1 2.1 0 0 1 0 3ZM4 20h16" />
+  ),
   calendar: (
     <path d="M4 6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6ZM4 10h16M8 3v4M16 3v4" />
   ),
@@ -51,6 +54,7 @@ export default function Layout({ children }) {
             <nav className="hidden sm:flex gap-1">
               <NavLink to="/" end className={navItem}>{t('nav.dashboard')}</NavLink>
               <NavLink to="/documents" className={navItem}>{t('nav.documents')}</NavLink>
+              <NavLink to="/equipment" className={navItem}>{t('nav.equipment')}</NavLink>
               <NavLink to="/calendar" className={navItem}>{t('nav.calendar')}</NavLink>
               <NavLink to="/expenses" className={navItem}>{t('nav.expenses')}</NavLink>
             </nav>
@@ -93,6 +97,10 @@ export default function Layout({ children }) {
         <NavLink to="/documents" className={tabItem}>
           <TabIcon name="documents" />
           {t('nav.documents')}
+        </NavLink>
+        <NavLink to="/equipment" className={tabItem}>
+          <TabIcon name="equipment" />
+          {t('nav.equipment')}
         </NavLink>
         <NavLink to="/calendar" className={tabItem}>
           <TabIcon name="calendar" />

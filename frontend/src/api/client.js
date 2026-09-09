@@ -58,6 +58,21 @@ export const api = {
     downloadUrl: (id) => `${BASE}/documents/${id}/download?token=${getToken()}`,
   },
 
+  equipment: {
+    list: (propertyId) => request(`/equipment/property/${propertyId}`),
+    get: (id) => request(`/equipment/${id}`),
+    create: (data) => request('/equipment', { method: 'POST', body: data }),
+    update: (id, data) => request(`/equipment/${id}`, { method: 'PUT', body: data }),
+    remove: (id) => request(`/equipment/${id}`, { method: 'DELETE' }),
+    uploadPhoto: (equipmentId, formData) =>
+      request(`/equipment/${equipmentId}/photos`, { method: 'POST', body: formData, isForm: true }),
+    removePhoto: (equipmentId, photoId) => request(`/equipment/${equipmentId}/photos/${photoId}`, { method: 'DELETE' }),
+    photoUrl: (equipmentId, photoId) => `${BASE}/equipment/${equipmentId}/photos/${photoId}?token=${getToken()}`,
+    addMaintenance: (equipmentId, data) => request(`/equipment/${equipmentId}/maintenance`, { method: 'POST', body: data }),
+    removeMaintenance: (equipmentId, logId) =>
+      request(`/equipment/${equipmentId}/maintenance/${logId}`, { method: 'DELETE' }),
+  },
+
   reminders: {
     list: (propertyId) => request(`/reminders/property/${propertyId}`),
     create: (data) => request('/reminders', { method: 'POST', body: data }),
