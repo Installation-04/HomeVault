@@ -5,3 +5,19 @@
 body {
   @apply bg-gray-50 text-gray-900;
 }
+
+/* Printing a QR code (e.g. for a physical document label) should show only
+   the QR modal, not the app chrome behind it. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .qr-modal,
+  .qr-modal * {
+    visibility: visible;
+  }
+  .qr-modal {
+    position: fixed;
+    inset: 0;
+  }
+}
