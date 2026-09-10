@@ -51,10 +51,26 @@ export const api = {
       const qs = new URLSearchParams(params).toString();
       return request(`/documents/property/${propertyId}${qs ? `?${qs}` : ''}`);
     },
+    get: (id) => request(`/documents/${id}`),
     upload: (formData) => request('/documents', { method: 'POST', body: formData, isForm: true }),
     update: (id, data) => request(`/documents/${id}`, { method: 'PUT', body: data }),
     remove: (id) => request(`/documents/${id}`, { method: 'DELETE' }),
     downloadUrl: (id) => `${BASE}/documents/${id}/download?token=${getToken()}`,
+  },
+
+  equipment: {
+    list: (propertyId) => request(`/equipment/property/${propertyId}`),
+    get: (id) => request(`/equipment/${id}`),
+    create: (data) => request('/equipment', { method: 'POST', body: data }),
+    update: (id, data) => request(`/equipment/${id}`, { method: 'PUT', body: data }),
+    remove: (id) => request(`/equipment/${id}`, { method: 'DELETE' }),
+    uploadPhoto: (equipmentId, formData) =>
+      request(`/equipment/${equipmentId}/photos`, { method: 'POST', body: formData, isForm: true }),
+    removePhoto: (equipmentId, photoId) => request(`/equipment/${equipmentId}/photos/${photoId}`, { method: 'DELETE' }),
+    photoUrl: (equipmentId, photoId) => `${BASE}/equipment/${equipmentId}/photos/${photoId}?token=${getToken()}`,
+    addMaintenance: (equipmentId, data) => request(`/equipment/${equipmentId}/maintenance`, { method: 'POST', body: data }),
+    removeMaintenance: (equipmentId, logId) =>
+      request(`/equipment/${equipmentId}/maintenance/${logId}`, { method: 'DELETE' }),
   },
 
   reminders: {

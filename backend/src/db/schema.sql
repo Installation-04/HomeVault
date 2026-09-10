@@ -31,9 +31,29 @@ CREATE TABLE IF NOT EXISTS property_access (
   UNIQUE(property_id, user_id)
 );
 
+-- Physical equipment/appliances tracked for inventory, warranty, and
+-- maintenance history purposes (e.g. furnace, fridge, water heater).
+CREATE TABLE IF NOT EXISTS equipment (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'other', -- appliance, hvac, plumbing, electrical, tool, electronics, vehicle, other
+  brand TEXT,
+  model_number TEXT,
+  serial_number TEXT,
+  location TEXT, -- e.g. "kitchen", "basement"
+  purchase_date TEXT,
+  warranty_expiry TEXT,
+  notes TEXT,
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS documents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  equipment_id INTEGER REFERENCES equipment(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   category TEXT NOT NULL, -- invoice, warranty, insurance, contract, photo, maintenance, tax, other
   file_path TEXT NOT NULL,
@@ -47,6 +67,29 @@ CREATE TABLE IF NOT EXISTS documents (
   created_by INTEGER NOT NULL REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS equipment_photos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  mime_type TEXT,
+  file_size INTEGER,
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS maintenance_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+  log_date TEXT NOT NULL,
+  description TEXT NOT NULL,
+  cost REAL,
+  performed_by TEXT, -- e.g. "self" or a contractor's name
+  document_id INTEGER REFERENCES documents(id) ON DELETE SET NULL, -- optional receipt/invoice
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS reminders (
@@ -99,6 +142,10 @@ CREATE TABLE IF NOT EXISTS expenses (
 
 CREATE INDEX IF NOT EXISTS idx_documents_property ON documents(property_id);
 CREATE INDEX IF NOT EXISTS idx_documents_expiry ON documents(expiry_date);
+CREATE INDEX IF NOT EXISTS idx_documents_equipment ON documents(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_property ON equipment(property_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_photos_equipment ON equipment_photos(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_maintenance_logs_equipment ON maintenance_logs(equipment_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_property ON reminders(property_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_property ON tasks(property_id);
