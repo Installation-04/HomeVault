@@ -17,7 +17,7 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.14",
-    "node-cron": "^3.0.3"
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.0.10"
   }
 }
