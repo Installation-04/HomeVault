@@ -24,6 +24,9 @@ function ensureColumn(table, column, definition) {
   }
 }
 ensureColumn('documents', 'equipment_id', 'INTEGER REFERENCES equipment(id) ON DELETE SET NULL');
+ensureColumn('reminders', 'notified_for_due_date', 'TEXT');
+ensureColumn('documents', 'expiry_notified_for', 'TEXT');
+ensureColumn('equipment', 'warranty_notified_for', 'TEXT');
 
 export function backupDatabase(destDir) {
   fs.mkdirSync(destDir, { recursive: true });

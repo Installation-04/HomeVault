@@ -1,61 +1,33 @@
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import path from 'node:path';
 import cron from 'node-cron';
-import { fileURLToPath } from 'node:url';
 
-import './db/index.js'; // initializes schema on import
-import { backupDatabase } from './db/index.js';
-import { authRouter } from './routes/auth.js';
-import { propertiesRouter } from './routes/properties.js';
-import { documentsRouter } from './routes/documents.js';
-import { equipmentRouter } from './routes/equipment.js';
-import { remindersRouter } from './routes/reminders.js';
-import { tasksRouter } from './routes/tasks.js';
-import { expensesRouter } from './routes/expenses.js';
-import { calendarRouter } from './routes/calendar.js';
-import { exportRouter } from './routes/export.js';
-import { dashboardRouter } from './routes/dashboard.js';
-import { runReminderCheck } from './utils/reminderEngine.js';
+import { assertConfig } from './config.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
+try {
+  assertConfig();
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
 
-const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((s) => s.trim());
-app.use(cors({ origin: corsOrigins }));
-app.use(express.json());
+// Imported after the config check so a bad configuration fails with a clear
+// message before the database or upload folders are touched.
+const { db, backupDatabase } = await import('./db/index.js');
+const { createApp } = await import('./app.js');
+const { runReminderCheck } = await import('./utils/reminderEngine.js');
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
-app.use('/api/auth', authRouter);
-app.use('/api/properties', propertiesRouter);
-app.use('/api/documents', documentsRouter);
-app.use('/api/equipment', equipmentRouter);
-app.use('/api/reminders', remindersRouter);
-app.use('/api/tasks', tasksRouter);
-app.use('/api/expenses', expensesRouter);
-app.use('/api/calendar', calendarRouter);
-app.use('/api/export', exportRouter);
-app.use('/api/dashboard', dashboardRouter);
-
-// Serve the built frontend (single-container deploy).
-const frontendDist = path.join(__dirname, '../../frontend/dist');
-app.use(express.static(frontendDist));
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(frontendDist, 'index.html'), (err) => {
-    if (err) next();
-  });
-});
+const app = createApp();
 
 const reminderCron = process.env.REMINDER_CHECK_CRON || '0 8 * * *';
-cron.schedule(reminderCron, () => {
-  runReminderCheck().catch((err) => console.error('Reminder check failed:', err));
+const reminderTask = cron.schedule(reminderCron, () => {
+  runReminderCheck()
+    .then((r) => r.items && console.log(`Reminder check: ${r.items} item(s), ${r.emailsSent} email(s) sent`))
+    .catch((err) => console.error('Reminder check failed:', err));
 });
 
 const backupCron = process.env.BACKUP_CRON || '0 3 * * *';
 const backupDir = process.env.BACKUP_DIR || './data/backups';
-cron.schedule(backupCron, () => {
+const backupTask = cron.schedule(backupCron, () => {
   try {
     const dest = backupDatabase(backupDir);
     console.log('Backup written to', dest);
@@ -65,4 +37,20 @@ cron.schedule(backupCron, () => {
 });
 
 const port = process.env.PORT || 4000;
-app.listen(port, () => console.log(`HomeVault backend listening on port ${port}`));
+const server = app.listen(port, () => console.log(`HomeVault backend listening on port ${port}`));
+
+// `docker stop` sends SIGTERM; as PID 1 node would otherwise ignore it and get
+// SIGKILLed after 10s, skipping the SQLite WAL checkpoint on close.
+function shutdown(signal) {
+  console.log(`${signal} received, shutting down`);
+  reminderTask.stop();
+  backupTask.stop();
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
+  server.closeIdleConnections?.();
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

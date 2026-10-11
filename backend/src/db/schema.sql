@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS equipment (
   location TEXT, -- e.g. "kitchen", "basement"
   purchase_date TEXT,
   warranty_expiry TEXT,
+  warranty_notified_for TEXT, -- warranty_expiry value an email notice was last sent for
   notes TEXT,
   created_by INTEGER NOT NULL REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS documents (
   file_size INTEGER,
   document_date TEXT,
   expiry_date TEXT,
+  expiry_notified_for TEXT, -- expiry_date value an email notice was last sent for
   notes TEXT,
   tags TEXT, -- comma-separated
   created_by INTEGER NOT NULL REFERENCES users(id),
@@ -103,6 +105,7 @@ CREATE TABLE IF NOT EXISTS reminders (
   recurrence_interval_days INTEGER, -- used when recurrence = custom
   lead_time_days INTEGER NOT NULL DEFAULT 7,
   notify_email INTEGER NOT NULL DEFAULT 1,
+  notified_for_due_date TEXT, -- due_date value an email was last sent for (send once per due date)
   completed_at TEXT,
   notes TEXT,
   created_by INTEGER NOT NULL REFERENCES users(id),
