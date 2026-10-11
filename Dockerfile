@@ -1,5 +1,5 @@
 # --- frontend build -------------------------------------------------------
-FROM node:22-bookworm-slim AS frontend-build
+FROM node:25-bookworm-slim AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # --- backend dependencies (compiler toolchain stays out of the final image)
-FROM node:22-bookworm-slim AS backend-deps
+FROM node:25-bookworm-slim AS backend-deps
 WORKDIR /app/backend
 # Only needed if better-sqlite3 has no prebuilt binary for the platform.
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
@@ -16,7 +16,7 @@ COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev
 
 # --- runtime --------------------------------------------------------------
-FROM node:22-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 WORKDIR /app/backend
 ENV NODE_ENV=production \
     PORT=4000
