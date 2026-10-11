@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Translation keys (EN/FR parity, no missing keys)
+        run: npm run check:i18n
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+
+  docker:
+    name: Docker image smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t homevault:ci .
+
+      - name: Refuses to start with the placeholder JWT secret
+        run: |
+          set +e
+          out=$(docker run --rm -e JWT_SECRET=change-me-to-a-long-random-string homevault:ci 2>&1)
+          code=$?
+          echo "$out"
+          test "$code" -eq 1
+          echo "$out" | grep -q JWT_SECRET
+
+      - name: Start container on a root-owned bind mount
+        run: |
+          mkdir -p data   # created by the runner user; the entrypoint must still be able to fix ownership
+          sudo chown root:root data
+          docker run -d --name hv -p 4000:4000 \
+            -e JWT_SECRET="$(openssl rand -hex 32)" \
+            -e DB_PATH=./data/homevault.sqlite \
+            -e UPLOAD_DIR=./data/uploads \
+            -e BACKUP_DIR=./data/backups \
+            -v "$PWD/data:/app/backend/data" \
+            homevault:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4000/api/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs hv
+          exit 1
+
+      - name: Runs unprivileged
+        run: |
+          uid=$(docker exec hv sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status")
+          echo "PID 1 uid: $uid"
+          test "$uid" != "0"
+
+      - name: End-to-end flow (setup, login, upload, download)
+        run: |
+          base=http://127.0.0.1:4000
+          token=$(curl -fsS -X POST $base/api/auth/setup -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.com","password":"ci-password-123","name":"CI"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
+          pid=$(curl -fsS -X POST $base/api/properties -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+            -d '{"name":"CI House"}' | sed -E 's/.*"id":([0-9]+).*/\1/')
+          echo "hello" > note.txt
+          doc=$(curl -fsS -X POST $base/api/documents -H "Authorization: Bearer $token" \
+            -F "property_id=$pid" -F "title=Note" -F "file=@note.txt" | sed -E 's/.*"id":([0-9]+).*/\1/')
+          test "$(curl -fsS $base/api/documents/$doc/download -H "Authorization: Bearer $token")" = "hello"
+          curl -fsS $base/ | grep -qi '<div id="root">'   # built frontend is served
+          ls -R data | head -20
+          test -f data/homevault.sqlite
+
+      - name: Stops cleanly on SIGTERM
+        run: |
+          start=$(date +%s)
+          docker stop -t 15 hv
+          elapsed=$(( $(date +%s) - start ))
+          code=$(docker inspect -f '{{.State.ExitCode}}' hv)
+          echo "exit code $code after ${elapsed}s"
+          test "$code" -eq 0
+          test "$elapsed" -lt 10
+
+      - name: Container logs
+        if: always()
+        run: docker logs hv || true
