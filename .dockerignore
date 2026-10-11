@@ -1,0 +1,11 @@
+.git
+.github
+**/node_modules
+**/dist
+**/data
+docs
+backend/test
+backend/.env
+frontend/.env
+.env
+*.sqlite*
