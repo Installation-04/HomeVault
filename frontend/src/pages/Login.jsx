@@ -42,14 +42,23 @@ export default function Login() {
         <form onSubmit={submit} className="space-y-3">
           {needsSetup && (
             <div>
-              <label className="block text-sm mb-1">{t('login.name')}</label>
-              <input className="w-full border rounded px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} required />
+              <label htmlFor="login-name" className="block text-sm mb-1">{t('login.name')}</label>
+              <input
+                id="login-name"
+                className="w-full border rounded px-3 py-2"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
             </div>
           )}
           <div>
-            <label className="block text-sm mb-1">{t('login.email')}</label>
+            <label htmlFor="login-email" className="block text-sm mb-1">{t('login.email')}</label>
             <input
+              id="login-email"
               type="email"
+              autoComplete="username"
               className="w-full border rounded px-3 py-2"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -57,16 +66,24 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">{t('login.password')}</label>
+            <label htmlFor="login-password" className="block text-sm mb-1">{t('login.password')}</label>
             <input
+              id="login-password"
               type="password"
+              autoComplete={needsSetup ? 'new-password' : 'current-password'}
+              minLength={needsSetup ? 8 : undefined}
               className="w-full border rounded px-3 py-2"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            {needsSetup && <p className="text-xs text-gray-400 mt-1">{t('settings.password_hint')}</p>}
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
           <button type="submit" className="w-full bg-brand-600 text-white rounded py-2 font-medium hover:bg-brand-700">
             {t('login.submit')}
           </button>

@@ -7,13 +7,15 @@ import { removeFiles } from '../utils/uploads.js';
 export const propertiesRouter = Router();
 propertiesRouter.use(requireAuth);
 
+// Each row carries the caller's role so the UI can hide controls they can't use
+// (admins act as owner everywhere).
 function propertiesForUser(userId, isAdmin) {
-  if (isAdmin) return db.prepare('SELECT * FROM properties ORDER BY name').all();
+  if (isAdmin) return db.prepare("SELECT *, 'owner' AS role FROM properties ORDER BY name COLLATE NOCASE").all();
   return db
     .prepare(
-      `SELECT p.* FROM properties p
+      `SELECT p.*, pa.role FROM properties p
        JOIN property_access pa ON pa.property_id = p.id
-       WHERE pa.user_id = ? ORDER BY p.name`
+       WHERE pa.user_id = ? ORDER BY p.name COLLATE NOCASE`
     )
     .all(userId);
 }

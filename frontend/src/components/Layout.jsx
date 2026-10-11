@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -28,6 +29,12 @@ const icons = {
   expenses: (
     <path d="M12 3v18M17 6.5c0-1.4-1.8-2.5-5-2.5S7 5.1 7 6.5 8.8 9 12 9s5 1.1 5 2.5-1.8 2.5-5 2.5-5-1.1-5-2.5" />
   ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+    </>
+  ),
 };
 
 function TabIcon({ name }) {
@@ -40,7 +47,23 @@ function TabIcon({ name }) {
 
 export default function Layout({ children }) {
   const { t, i18n } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+
+  // Keep <html lang> in sync for screen readers and hyphenation.
+  useEffect(() => {
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
+
+  const changeLanguage = (lng) => {
+    i18n.changeLanguage(lng);
+    try {
+      localStorage.setItem('locale', lng);
+    } catch {
+      /* storage unavailable */
+    }
+    // Also remember it on the account so reminder emails use the same language.
+    updateProfile({ locale: lng }).catch(() => {});
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -64,16 +87,22 @@ export default function Layout({ children }) {
             <select
               className="text-sm border rounded px-1 py-1"
               value={i18n.language}
-              onChange={(e) => {
-                i18n.changeLanguage(e.target.value);
-                localStorage.setItem('locale', e.target.value);
-              }}
+              aria-label={t('settings.language')}
+              onChange={(e) => changeLanguage(e.target.value)}
             >
               <option value="en">EN</option>
               <option value="fr">FR</option>
             </select>
+            <NavLink
+              to="/settings"
+              aria-label={t('nav.settings')}
+              title={t('nav.settings')}
+              className={({ isActive }) => `p-1 rounded ${isActive ? 'text-brand-700 bg-brand-50' : 'text-gray-500 hover:text-brand-700'}`}
+            >
+              <TabIcon name="settings" />
+            </NavLink>
             <span className="text-sm text-gray-500 hidden sm:inline">{user?.name}</span>
-            <button onClick={logout} className="text-sm text-gray-500 hover:text-brand-700">
+            <button onClick={logout} className="text-sm text-gray-500 hover:text-brand-700 whitespace-nowrap">
               {t('nav.logout')}
             </button>
           </div>

@@ -83,6 +83,18 @@ test('sharing with an unknown email -> 404; unknown roles fall back to viewer', 
   assert.equal(list.body.find((m) => m.email === 'bob@example.com').role, 'viewer');
 });
 
+test('the property list reports the caller\'s role for each property', async () => {
+  const asOwner = await t.api.get('/api/properties', { token: alice.token });
+  assert.equal(asOwner.body.find((p) => p.id === P.id).role, 'owner');
+
+  await t.api.post(`/api/properties/${P.id}/share`, { email: 'bob@example.com', role: 'viewer' }, { token: alice.token });
+  const asViewer = await t.api.get('/api/properties', { token: bob.token });
+  assert.equal(asViewer.body.find((p) => p.id === P.id).role, 'viewer');
+
+  const asAdmin = await t.api.get('/api/properties', { token: admin.token });
+  assert.equal(asAdmin.body.find((p) => p.id === P.id).role, 'owner');
+});
+
 test('property update requires a name; admins can see all properties', async () => {
   const bad = await t.api.put(`/api/properties/${P.id}`, { address: '1 Main St' }, { token: alice.token });
   assert.equal(bad.status, 400);
