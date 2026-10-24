@@ -1,0 +1,27 @@
+# Reverse proxy used by `./deploy.sh install --domain example.com`.
+# Caddy obtains and renews a Let's Encrypt certificate automatically, redirects
+# http -> https, and talks to the app over the private compose network.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# A little above the app's own 50 MB upload limit.
+	request_body {
+		max_size 60MB
+	}
+
+	reverse_proxy homevault:4000 {
+		# X-Forwarded-For / -Proto / -Host are added by Caddy; the app trusts exactly one proxy hop.
+		health_uri /api/health
+		health_interval 30s
+	}
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=15552000"
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
