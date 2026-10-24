@@ -135,7 +135,8 @@ export function createApp() {
   // --- Frontend (single-container deploy) --------------------------------
   const frontendDist = process.env.FRONTEND_DIST || path.join(__dirname, '../../frontend/dist');
   app.use(express.static(frontendDist, { index: false, setHeaders: staticHeaders }));
-  app.get('*', (req, res, next) => {
+  // Express 5 wildcard syntax: any other GET is the single-page app.
+  app.get('/{*splat}', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(frontendDist, 'index.html'), (err) => {
       if (err) next();

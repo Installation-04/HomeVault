@@ -4,13 +4,25 @@ updates:
     directory: /backend
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    ignore:
+      # 13.x ships no prebuilt arm64 binary for Node 22, which would break Raspberry Pi installs.
+      - dependency-name: better-sqlite3
+        versions: [">=13"]
   - package-ecosystem: npm
     directory: /frontend
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    ignore:
+      # Tailwind 4 moves configuration into CSS: a migration, not a version bump.
+      - dependency-name: tailwindcss
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /
     schedule: { interval: monthly }
+    ignore:
+      # Odd-numbered Node releases are short-lived; only move between LTS lines.
+      - dependency-name: node
+        versions: ["23.x", "25.x", "27.x"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
