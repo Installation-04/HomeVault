@@ -100,9 +100,48 @@ jobs:
             echo "::warning title=Package is not public::$ref cannot be pulled anonymously. In GitHub: your profile or organization > Packages > ${ref##*/} > Package settings > Change visibility > Public. Until then installs and in-app updates cannot download it."
           fi
 
+  # Installed copies offer an update as soon as a GitHub release exists, so the release is only created
+  # after the images were pulled anonymously (as users do) and shown to work on both platforms.
+  published:
+    name: Published image works (${{ matrix.platform }})
+    needs: images
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - name: Pull anonymously and run
+        run: |
+          set -e
+          version="${GITHUB_REF_NAME#v}"
+          app="ghcr.io/${GITHUB_REPOSITORY,,}:$version"
+          updater="ghcr.io/${GITHUB_REPOSITORY,,}-updater:$version"
+          docker logout ghcr.io >/dev/null 2>&1 || true   # no credentials: exactly what an installer has
+          docker pull --platform "${{ matrix.platform }}" "$app"
+          docker pull --platform "${{ matrix.platform }}" "$updater"
+          docker run -d --name hv --platform "${{ matrix.platform }}" -p 18090:4000 \
+            -e APP_SECRET="$(openssl rand -hex 32)" -e DATA_KEY="$(openssl rand -hex 32)" -e SETUP_TOKEN=release-check-token \
+            -e DB_PATH=./data/homevault.sqlite -e UPLOAD_DIR=./data/uploads -e BACKUP_DIR=./data/backups "$app"
+          for i in $(seq 1 90); do curl -fsS http://127.0.0.1:18090/api/health >/dev/null && break; sleep 2; done
+          curl -fsS http://127.0.0.1:18090/api/health
+          docker exec hv node -p process.arch
+          test "$(docker exec hv printenv HOMEVAULT_VERSION)" = "${GITHUB_REF_NAME}"
+          SETUP_TOKEN=release-check-token scripts/smoke-test.sh http://127.0.0.1:18090
+          docker run --rm --platform "${{ matrix.platform }}" --entrypoint sh "$updater" -c 'docker compose version && git --version'
+      - name: Container logs
+        if: always()
+        run: docker logs hv || true
+
   release:
     name: GitHub release
-    needs: images
+    needs: [images, published]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
