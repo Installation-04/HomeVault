@@ -83,10 +83,15 @@ if curl -fsS -m 2 "http://127.0.0.1:$API_PORT/" >/dev/null 2>&1 || curl -s -m 2 
 fi
 node "$ROOT/scripts/e2e/mock-github.mjs" "$API_PORT" "$STATE" >"$WORK/mock.log" 2>&1 &
 MOCK_PID=$!
-sleep 1
-kill -0 "$MOCK_PID" 2>/dev/null || die "the GitHub mock did not start: $(cat "$WORK/mock.log")"
+# Node can take a few seconds to start on a busy machine: wait for the answer, but stop at once if it died.
+mock_up=false
+for _ in $(seq 1 50); do
+  kill -0 "$MOCK_PID" 2>/dev/null || die "the GitHub mock did not start: $(cat "$WORK/mock.log")"
+  if curl -fsS -m 2 "http://127.0.0.1:$API_PORT/repos/test/homevault/releases/latest" >/dev/null 2>&1; then mock_up=true; break; fi
+  sleep 0.3
+done
+$mock_up || die "the GitHub mock is not answering on port $API_PORT: $(cat "$WORK/mock.log")"
 GATEWAY="$(docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}')"
-curl -fsS "http://127.0.0.1:$API_PORT/repos/test/homevault/releases/latest" >/dev/null || die "the mock did not start"
 
 step "Installing v1.0.0 with the updater: ./deploy.sh install"
 git clone -q --depth 1 --branch v1.0.0 "file://$WORK/src" "$WORK/inst"
