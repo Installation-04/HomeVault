@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import fs from 'node:fs';
 import { db } from '../db/index.js';
 import { requireAuth, requirePropertyAccess } from '../middleware/auth.js';
@@ -83,7 +83,7 @@ exportRouter.get('/property/:propertyId/bundle.zip', requirePropertyAccess(), (r
   audit(req, 'bundle_exported', { target: property.name });
   res.attachment(`homevault-${safeName(property.name)}-export.zip`);
 
-  const archive = archiver('zip', { zlib: { level: 9 } });
+  const archive = new ZipArchive({ zlib: { level: 9 } });
   archive.on('warning', (err) => console.warn('Export warning:', err.message));
   archive.on('error', (err) => {
     if (!res.headersSent) next(err);
