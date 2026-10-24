@@ -13,25 +13,42 @@ versions with notes on what changed.
 
 ## Quick start
 
-Needs Docker with the Compose plugin and nothing else.
+You need a Linux machine (a server, a NAS, or a **Raspberry Pi 3/4/5 with a 64-bit OS**) with
+Docker. HomeVault runs on Intel/AMD (amd64) and ARM (arm64).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Installation-04/HomeVault/main/install.sh | bash
+```
+
+The installer downloads the newest release and starts a short **setup wizard**: how you will reach
+HomeVault (home network, your own domain with automatic HTTPS, or behind a reverse proxy), where to
+keep the data, language, optional email reminders, one-click updates, nightly backups and your
+administrator account. A few minutes later it is running and tells you the address.
+
+Prefer to read the script first?
 
 ```bash
 git clone https://github.com/Installation-04/HomeVault.git && cd HomeVault
-./deploy.sh install
+./deploy.sh install        # asks the same questions; add --yes to skip them
 ```
 
-The script checks your machine, generates the secrets (`.env`, mode 600), builds
-the image, starts HomeVault, waits until it is healthy and prints the address and
-a one-time setup token. Open the address, create the administrator account, and
-turn on two-factor authentication under *Settings → Security*.
+Then turn on two-factor authentication under *Settings → Security*.
 
-Want real HTTPS with an automatic Let's Encrypt certificate? Point a DNS name at
-the machine, open ports 80 and 443, and run
-`./deploy.sh install --domain home.example.com`.
+**Keeping it up to date:** when a new version is released, administrators see a notice and an
+**Update** button in *Settings → Administration*. It makes a backup, installs the new version and
+rolls back by itself if that version doesn't start. From a terminal: `./deploy.sh update`.
 
-Day-to-day: `./deploy.sh update`, `backup`, `restore <file>`, `status`, `logs`,
-`doctor`. Everything is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); how the app
-protects your data is in [docs/SECURITY.md](docs/SECURITY.md).
+Day-to-day: `./deploy.sh status`, `logs`, `backup`, `restore <file>`, `doctor`. Everything is in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); how the app protects your data is in
+[docs/SECURITY.md](docs/SECURITY.md); what changed is in the [changelog](CHANGELOG.md).
+
+### Raspberry Pi and other ARM boards
+
+Use a **64-bit** operating system (Raspberry Pi OS 64-bit on a Pi 3, 4 or 5; a 32-bit system is
+refused with an explanation). The wizard picks the ready-made image, which is a quick download;
+building from source on a Pi works but takes a long time. HomeVault is light: with under 1.5 GB of
+RAM the wizard limits it to 512 MB, which is plenty for a household. Keep the data on a USB SSD
+rather than the SD card if you can.
 
 ## Screenshots
 
@@ -114,9 +131,12 @@ HomeVault/
 │       ├── utils/            # date, recurrence and money formatting
 │       └── i18n/              # en.json / fr.json (checked by npm run check:i18n)
 ├── docs/                       # SECURITY.md, DEPLOYMENT.md, screenshots/
-├── deploy.sh                   # install / update / backup / restore / doctor ...
+├── install.sh                  # curl | bash bootstrap: downloads a release, starts the wizard
+├── deploy.sh                   # install / wizard / update / backup / restore / doctor ...
 ├── deploy/Caddyfile            # automatic-HTTPS reverse proxy (--domain)
-├── scripts/smoke-test.sh       # black-box check of a running instance (CI uses it)
+├── updater/                    # the helper behind the Update button (docker CLI + updater.sh)
+├── scripts/                    # wizard.sh, smoke-test.sh and the end-to-end tests CI runs
+├── CHANGELOG.md                # what changed in each release
 ├── docker/entrypoint.sh        # fixes data-volume ownership, drops root
 ├── Dockerfile                 # multi-stage: builds frontend, runs backend
 └── docker-compose.yml          # hardened service definition + optional HTTPS profile
@@ -213,9 +233,13 @@ database already existed), so there's no separate migration step to run.
     "recent security activity" feed, an admin audit log, admin-created
     accounts with a forced password change, and a password policy that
     rejects common and personal passwords
-17. **Operations**: `./deploy.sh` for install, update (with automatic backup
-    and rollback), verified backup/restore and diagnostics; hardened
-    container; nightly SQLite maintenance and snapshots
+17. **Operations**: a setup wizard, `./deploy.sh` for install, update (with
+    automatic backup and rollback), verified backup/restore and diagnostics;
+    hardened container; nightly SQLite maintenance and snapshots; runs on
+    amd64 and arm64 (Raspberry Pi)
+18. **In-app updates**: administrators are told when a new release exists and
+    can install it from Settings (password confirmation required); the app
+    checks GitHub for releases and can be told not to (`UPDATE_CHECK=false`)
 
 ### Roles
 
@@ -277,9 +301,9 @@ instance yourself.
 
 ## Running in Docker (NAS / homelab)
 
-`./deploy.sh install` (see [Quick start](#quick-start)) is the supported way.
-Under the hood it writes `.env`, then runs `docker compose`; you can do that
-yourself too:
+`./deploy.sh install` or the one-line installer (see [Quick start](#quick-start))
+is the supported way. Under the hood it writes `.env`, then runs
+`docker compose`; you can do that yourself too:
 
 ```bash
 cp .env.example .env    # set APP_SECRET, DATA_KEY (openssl rand -hex 32) and SETUP_TOKEN
@@ -304,9 +328,19 @@ published port, set `TRUST_PROXY=1`, and once HTTPS works set
 `FORCE_HTTPS=true` (HSTS and `__Host-` cookies). Full details, backup/restore,
 upgrades and troubleshooting: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
+### Updating
+
+- **In the app:** *Settings → Administration → Software update*. Needs the updater helper, which
+  the wizard offers to install (`./deploy.sh updater enable` adds it later).
+- **From a terminal:** `./deploy.sh update` (newest release), `./deploy.sh update --check`,
+  or `./deploy.sh update --to 1.2.0`.
+
+Either way it takes a backup first, installs the release, checks that the new version is healthy
+and otherwise puts the old one back.
+
 ### Upgrading from an earlier version
 
-Run `./deploy.sh update` (it backs up first). Things that changed:
+Run `./deploy.sh update` (it backs up first). Things that changed in 1.0:
 
 - **Sign-in is now cookie-based.** Everyone is signed out once; scripts that
   sent `Authorization: Bearer ...` or `?token=` must sign in with a cookie jar.

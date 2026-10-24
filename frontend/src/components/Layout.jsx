@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
+import { api } from '../api/client.js';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext.jsx';
 import PropertySwitcher from './PropertySwitcher.jsx';
@@ -58,6 +59,33 @@ export default function Layout({ children }) {
   const { user, logout, updateProfile } = useAuth();
 
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // Administrators are told when a newer release exists (one quiet request per page load;
+  // the server remembers GitHub's answer for hours). A dismissed version stays dismissed.
+  const [newVersion, setNewVersion] = useState(null);
+  useEffect(() => {
+    if (!user?.is_admin) return;
+    api.admin
+      .update()
+      .then((info) => {
+        let dismissed = null;
+        try {
+          dismissed = localStorage.getItem('dismissedUpdate');
+        } catch {
+          /* storage unavailable */
+        }
+        if (info.update_available && info.latest.version !== dismissed && !info.in_progress) setNewVersion(info.latest.version);
+      })
+      .catch(() => {});
+  }, [user?.is_admin]);
+  const dismissUpdate = () => {
+    try {
+      localStorage.setItem('dismissedUpdate', newVersion);
+    } catch {
+      /* storage unavailable */
+    }
+    setNewVersion(null);
+  };
 
   // Ctrl/Cmd+K opens "find anything" from every page.
   useEffect(() => {
@@ -139,6 +167,16 @@ export default function Layout({ children }) {
           </div>
         </div>
       </header>
+
+      {newVersion && (
+        <div role="status" className="bg-amber-50 border-b border-amber-200 text-sm text-amber-900">
+          <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-3">
+            <span className="flex-1">{t('update.banner', { version: newVersion })}</span>
+            <Link to="/settings?tab=admin" className="font-medium underline">{t('update.banner_review')}</Link>
+            <button type="button" onClick={dismissUpdate} aria-label={t('update.dismiss')} title={t('update.dismiss')} className="px-1 text-amber-700 hover:text-amber-900">×</button>
+          </div>
+        </div>
+      )}
 
       <InstallPrompt />
 

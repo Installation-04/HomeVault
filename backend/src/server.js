@@ -15,7 +15,9 @@ try {
 const { backupDatabase, closeDatabase, maintainDatabase } = await import('./db/index.js');
 const { createApp } = await import('./app.js');
 const { runReminderCheck } = await import('./utils/reminderEngine.js');
+const { ensureUpdateDir } = await import('./utils/updates.js');
 
+ensureUpdateDir();
 const app = createApp();
 
 const reminderCron = process.env.REMINDER_CHECK_CRON || '0 8 * * *';

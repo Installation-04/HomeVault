@@ -4,7 +4,9 @@
 ARG NODE_IMAGE=node:22-bookworm-slim
 
 # --- frontend build -------------------------------------------------------
-FROM ${NODE_IMAGE} AS frontend-build
+# The built files are plain JavaScript/CSS, identical on every CPU: build them once on the
+# machine doing the build instead of slowly under emulation for each target (amd64, arm64).
+FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
@@ -14,11 +16,15 @@ RUN npm run build
 # --- backend dependencies (compiler toolchain stays out of the final image)
 FROM ${NODE_IMAGE} AS backend-deps
 WORKDIR /app/backend
-# Only needed if better-sqlite3 has no prebuilt binary for the platform.
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
-  && rm -rf /var/lib/apt/lists/*
 COPY backend/package.json backend/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
+# better-sqlite3 ships prebuilt binaries for amd64 and arm64, so normally no compiler is needed.
+# Only when none matches (an unusual platform) the toolchain is installed and it is built.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev \
+    || ( apt-get update \
+         && apt-get install -y --no-install-recommends python3 make g++ \
+         && rm -rf /var/lib/apt/lists/* \
+         && npm ci --omit=dev )
 
 # --- runtime --------------------------------------------------------------
 FROM ${NODE_IMAGE} AS runtime

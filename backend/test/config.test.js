@@ -55,3 +55,13 @@ test('the server process refuses to boot in production with the placeholder secr
     fs.rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+test('update settings are validated', () => {
+  const ok = { NODE_ENV: 'test' };
+  assert.deepEqual(configProblems({ ...ok, UPDATE_CHECK: 'false', UPDATE_REPO: 'Installation-04/HomeVault', UPDATE_API_BASE: 'https://api.github.com' }), []);
+  assert.match(configProblems({ ...ok, UPDATE_CHECK: 'maybe' }).join(), /UPDATE_CHECK/);
+  assert.match(configProblems({ ...ok, UPDATE_REPO: 'not a repo' }).join(), /UPDATE_REPO/);
+  assert.match(configProblems({ ...ok, UPDATE_REPO: '../../etc/passwd' }).join(), /UPDATE_REPO/);
+  assert.match(configProblems({ ...ok, UPDATE_API_BASE: 'file:///etc/passwd' }).join(), /UPDATE_API_BASE/);
+  assert.match(configProblems({ ...ok, UPDATE_API_BASE: 'nonsense' }).join(), /UPDATE_API_BASE/);
+});

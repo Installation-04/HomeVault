@@ -1,48 +1,79 @@
 # Deploying HomeVault
 
-HomeVault runs as one container (plus an optional Caddy container for HTTPS). The
-`deploy.sh` script in the repository root does the setup and the day-to-day chores,
-so you rarely need to touch Docker directly.
+HomeVault runs as one container, plus two optional helpers: Caddy for automatic HTTPS and the
+updater behind the in-app *Update* button. The `deploy.sh` script in the repository root does the
+setup and the day-to-day chores, so you rarely need to touch Docker directly.
 
-**You need:** Linux, macOS or a NAS with Docker and the Compose plugin
-(`docker compose version`), `bash`, `git`. About 1 GB free disk for the image build and
-512 MB of RAM for the app (the container is limited to 768 MB by default).
+**You need:** Linux (a server, a NAS or a Raspberry Pi) with Docker and the Compose plugin
+(`docker compose version`), plus `bash`. About 1 GB of free disk and 512 MB of RAM.
+
+**Supported CPUs:** amd64 (Intel/AMD) and arm64 (Raspberry Pi 3/4/5 with a **64-bit** OS, Apple
+silicon, most ARM servers). 32-bit ARM systems are not supported; the wizard says so and suggests
+the 64-bit OS image.
 
 ## Install
 
+### One line
+
 ```bash
-git clone https://github.com/Installation-04/HomeVault.git
-cd HomeVault
-./deploy.sh install
+curl -fsSL https://raw.githubusercontent.com/Installation-04/HomeVault/main/install.sh | bash
 ```
 
-What it does, in order:
+This downloads the newest release into `~/homevault` (set `HOMEVAULT_DIR` to choose another
+folder) and starts the wizard. Add options after `bash -s --`, for example
+`... | bash -s -- --domain home.example.com --yes`. If you'd rather read the script first, clone the
+repository and run `./deploy.sh install` yourself; it asks the same questions.
 
-1. Checks Docker, Compose, free disk space and that the port is free.
-2. Creates `.env` from `.env.example` (mode 600) with freshly generated
-   `APP_SECRET`, `DATA_KEY` and `SETUP_TOKEN`. Existing values are never overwritten, so
-   it is safe to run again.
-3. Builds the image (or pulls it, with `--image`) and starts the container.
-4. Waits until the health check passes and prints the address and the setup token.
+### The wizard
 
-Open the address, create the administrator account (you will be asked for the setup
-token), then go to *Settings → Security* and turn on two-factor authentication.
+On a terminal, `./deploy.sh install` asks:
 
-> **Back up `.env` right now** — in a password manager, not next to your database
-> backups. `DATA_KEY` is what makes the two-factor secrets in a restored backup
-> readable; without it people just need to re-enrol (or sign in with a recovery code).
+1. **How to install:** the ready-made image (a quick download; the right choice on a Raspberry Pi)
+   or a build from the source in the folder (several minutes, much longer on a Pi).
+2. **How you will reach it:** only at home over plain HTTP; from anywhere over HTTPS on your own domain
+   (automatic Let's Encrypt certificate, see below); or behind a reverse proxy you already run.
+3. **Where the data lives** (point it at your NAS volume if you like).
+4. **Language** for new accounts, English or French.
+5. **Email reminders** through your SMTP server (optional).
+6. **One-click updates** (the updater helper; see [Updates](#updates-in-the-app)).
+7. **A nightly full backup** through cron (database and uploaded files).
+8. **Your administrator account**, so there is nothing left to do in the browser.
 
-### Options
+It shows a summary and asks for confirmation before changing anything. Run `./deploy.sh wizard`
+later to change settings of an installed copy; secrets and data are kept.
+
+Without a terminal, or with `--yes`, no questions are asked: defaults and your options are used.
+
+### What install does
+
+1. Checks Docker, Compose, the CPU architecture, free disk space and that the port is free.
+2. Creates `.env` from `.env.example` (mode 600) with freshly generated `APP_SECRET`, `DATA_KEY`
+   and `SETUP_TOKEN`. Existing values are never overwritten, so it is safe to run again.
+3. Downloads (or builds) the image and starts the container.
+4. Waits until the health check passes, creates your administrator (or prints the setup token) and
+   shows the address.
+
+> **Back up `.env` right now** (in a password manager, not next to your database backups).
+> `DATA_KEY` is what makes the two-factor secrets in a restored backup readable; without it people
+> just need to re-enrol (or sign in with a recovery code).
+
+### Options (for scripts)
 
 | Option | Meaning |
 | --- | --- |
+| `--yes`, `-y` | Never ask questions |
+| `--image <ref>` | Use this image, e.g. `ghcr.io/installation-04/homevault:1.0.0`; `auto` = the newest release's image (builds if none) |
+| `--source` | Build from the source in this folder |
 | `--domain home.example.com` | Serve HTTPS with an automatic Let's Encrypt certificate (see below) |
-| `--port 8080` | Host port for plain HTTP |
-| `--bind 127.0.0.1` | Listen address; the default is all interfaces (`127.0.0.1` with `--domain`) |
-| `--data-dir /volume1/homevault` | Where the database and uploads live; use your NAS volume |
-| `--image ghcr.io/installation-04/homevault:latest` | Use a prebuilt image instead of building |
-| `--no-start` | Write the configuration only |
-| `-y`, `--yes` | Never ask questions (for automation) |
+| `--port 8080` / `--bind 127.0.0.1` | Host port / listen address (loopback with `--domain`) |
+| `--data-dir /volume1/homevault` | Where the database and uploads live |
+| `--locale en\|fr` | Default language |
+| `--set KEY=VALUE` | Put any setting into `.env` (repeatable), e.g. `--set SMTP_HOST=smtp.example.com` |
+| `--updater` / `--no-updater` | Enable or skip the one-click update helper |
+| `--admin-email`, `--admin-name`, `--admin-password-file` | Create the administrator during install (the file's first line is the password; it is not kept) |
+| `--schedule` / `--no-schedule` | Set up (or skip) the nightly backup cron entry |
+| `--no-wizard` | Don't ask questions even on a terminal |
+| `--no-start` | Only write the configuration |
 
 Options are saved in `.env`, so later commands remember them.
 
@@ -105,7 +136,10 @@ one to `TRUSTED_ORIGINS` (comma-separated, e.g. `https://home.example.com`).
 | `./deploy.sh status` | Container health, address, data size, latest backup |
 | `./deploy.sh logs [-f]` | Recent logs (`-f` to follow) |
 | `./deploy.sh start` / `stop` / `restart` | Control the container; data is untouched |
-| `./deploy.sh update` | Back up, fetch the new version, rebuild, restart, verify |
+| `./deploy.sh update` | Back up, install the newest release, restart, verify; roll back on failure |
+| `./deploy.sh updater enable\|disable\|status` | The helper behind the in-app Update button |
+| `./deploy.sh schedule on\|off\|status` | Nightly full backup through cron |
+| `./deploy.sh wizard` | Run the guided setup again to change settings |
 | `./deploy.sh backup` | Verified backup archive in `./backups` |
 | `./deploy.sh restore <file>` | Replace the data with a backup (safety backup first) |
 | `./deploy.sh admin <cmd>` | Admin CLI inside the container (below) |
@@ -127,21 +161,59 @@ one to `TRUSTED_ORIGINS` (comma-separated, e.g. `https://home.example.com`).
 This is also how you get back in if every administrator is locked out. Each use is
 written to the audit log.
 
-## Updating
+## Updates
+
+HomeVault is released as numbered versions (for example `1.2.0`) on the
+[Releases page](https://github.com/Installation-04/HomeVault/releases); the
+[changelog](../CHANGELOG.md) says what changed.
+
+### Updates in the app
+
+When an administrator opens HomeVault, the app asks GitHub whether a newer release exists (the answer
+is remembered for hours; nothing about you or your data is sent; `UPDATE_CHECK=false` turns it off).
+If there is one, administrators see a notice, and *Settings → Administration → Software update*
+shows the release notes and an **Update** button.
+
+Pressing it asks for the administrator's password (and two-factor code, if on) and then:
+
+1. the app writes a small request; **the app itself never touches Docker**,
+2. the *updater* helper container picks it up and runs `./deploy.sh update`,
+3. that takes a backup, switches the files and image to the new release, restarts HomeVault and
+   waits for it to be healthy,
+4. if the new version doesn't start, the previous version and files are put back and the page says
+   so. Your data is not touched by an update that failed to start.
+
+The page shows progress and reloads itself when the update has finished. A few seconds of downtime
+during the restart is normal.
+
+**The updater helper** is a small container with access to the Docker socket (that is how it can
+replace the app container), so it can control Docker on this machine. It has no ports, a read-only
+filesystem and no extra capabilities, only acts when an administrator confirms an update, and always
+installs the newest published release, never something the request names. The wizard offers it
+(default yes); manage it with:
 
 ```bash
-./deploy.sh update
+./deploy.sh updater status
+./deploy.sh updater disable     # the Update button then shows the terminal command instead
+./deploy.sh updater enable
 ```
 
-It takes a backup (`backups/homevault-backup-pre-update-*.tar.gz`), runs `git pull` (skipped
-if you have local changes, or with `--no-git`), rebuilds, restarts and waits for the health
-check. **If the new version doesn't become healthy, it automatically restarts the previous
-image** and tells you; your data isn't changed by an update that failed to start. The
-previous image stays available as `homevault-rollback:latest` until the next update.
+See [SECURITY.md](SECURITY.md#in-app-updates) for the trade-off. It needs Linux and a local Docker
+socket (it does not work with Docker Desktop on Mac or Windows).
 
-With a prebuilt image (`--image ...`) `update` pulls the image instead of building.
+### Updates from a terminal
 
-Release notes are on the [Releases page](https://github.com/Installation-04/HomeVault/releases).
+```bash
+./deploy.sh update              # install the newest release
+./deploy.sh update --check      # only say whether there is one
+./deploy.sh update --to 1.2.0   # a specific release
+```
+
+For a git checkout (what the installer creates) the files in the folder move to the release's tag
+too; with a ready-made image the image tag moves; with a source install it rebuilds. If you changed
+files in the folder, they are left alone and only the image is updated. The previous image stays
+available as `homevault-rollback:latest` until the next update. `--no-git` keeps the files as they
+are and just re-pulls or rebuilds; `--edge` follows the `main` branch (for developers).
 
 ## Backups
 
@@ -199,7 +271,9 @@ data is only removed after the restored copy is healthy.
 | `REMINDER_CHECK_CRON` / `EXPIRY_NOTICE_DAYS` | `0 8 * * *` / `30` | Email reminder schedule and lead time (`0` turns expiry notices off) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | empty | Optional email for reminders |
 | `DEFAULT_LOCALE` | `en` | `en` or `fr` for new accounts |
-| `HOMEVAULT_IMAGE` | `homevault:latest` | Image to run (set by `--image`) |
+| `UPDATE_CHECK` | `true` | Check GitHub for new releases and offer updates; `false` turns it off |
+| `ENABLE_UPDATER` | `false` | The one-click update helper (managed by `./deploy.sh updater`) |
+| `HOMEVAULT_IMAGE` | `homevault:latest` | Image to run (set by `--image`; updates move its tag) |
 | `HOMEVAULT_MEMORY` | `768m` | Container memory limit |
 
 After editing `.env`, run `./deploy.sh restart`. The app checks its configuration on start
@@ -214,7 +288,8 @@ HomeVault/            the repository (deploy.sh, docker-compose.yml, .env)
 └── data/             DATA_DIR, mounted at /app/backend/data
     ├── homevault.sqlite    the database
     ├── uploads/            documents and photos
-    └── backups/            nightly database snapshots
+    ├── backups/            nightly database snapshots
+    └── .update/            requests and progress shared with the updater helper (no secrets)
 ```
 
 The image itself holds no data; you can rebuild or replace it at will. File ownership in
@@ -251,5 +326,13 @@ Start with `./deploy.sh doctor` and `./deploy.sh logs`.
 - **Forgot the administrator password** — `./deploy.sh admin reset-password <email>`.
 - **Lost the setup token** — it is `SETUP_TOKEN` in `.env`, or create the first admin with
   `./deploy.sh admin create-admin <email>`.
+- **No Update button, only a command** — the updater helper isn't running: `./deploy.sh updater enable`.
+- **"Could not check for updates"** — the container cannot reach `api.github.com` (firewall or no internet).
+  Everything else still works; update with `./deploy.sh update` from a machine that can.
+- **An update says it rolled back** — the new version didn't start; the page shows the reason and
+  `./deploy.sh logs` has details. You are still on the previous version with all your data.
+- **"This is a 32-bit ARM system"** — install a 64-bit OS (Raspberry Pi OS 64-bit) and run the installer again.
+- **Slow on a Raspberry Pi** — use the ready-made image (not a source build), keep the data on a USB SSD
+  instead of the SD card, and give it a power supply that doesn't throttle.
 - **Starting over** — `./deploy.sh uninstall --purge` removes the containers and all data
   (asks first); `.env` and `backups/` are left alone.

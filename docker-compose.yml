@@ -82,6 +82,48 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Optional: the helper behind the "Update" button in Settings. Enabled by deploy.sh when you
+  # answer yes to one-click updates (docker compose --profile updater up -d). It is the only
+  # service with access to the Docker socket (root-equivalent on this machine), so it is kept
+  # minimal: no ports, read-only filesystem, no capabilities, and it only ever runs
+  # `./deploy.sh update` when an administrator has confirmed an update in the app.
+  updater:
+    profiles: ["updater"]
+    image: ${UPDATER_IMAGE:-homevault-updater:latest}
+    build:
+      context: ./updater
+      args:
+        VERSION: ${HOMEVAULT_VERSION:-dev}
+    container_name: homevault-updater
+    restart: unless-stopped
+    # The host user, so files it updates in this folder stay yours; plus the group that owns the socket.
+    user: "${HV_UID:-1000}:${HV_GID:-1000}"
+    group_add: ["${DOCKER_GID:-999}"]
+    working_dir: ${HV_DIR:-.}
+    environment:
+      HV_DIR: ${HV_DIR:-.}
+      DOCKER_SOCKET: ${DOCKER_SOCKET:-/var/run/docker.sock}
+      HOME: /tmp
+    volumes:
+      # The project folder is mounted at the same path as on the host: docker compose passes
+      # absolute host paths to the Docker daemon, so they must match.
+      - ${HV_DIR:-.}:${HV_DIR:-.}
+      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - ${DATA_DIR:-./data}/.update:/updates
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777,nosuid,nodev
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
 volumes:
   caddy_data:
   caddy_config:
