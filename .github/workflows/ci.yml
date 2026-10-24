@@ -17,7 +17,7 @@ jobs:
     name: Backend tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -35,7 +35,7 @@ jobs:
     name: Frontend build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -56,7 +56,7 @@ jobs:
     name: Shell scripts, compose and Caddy config
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: shellcheck
         run: shellcheck -x install.sh deploy.sh scripts/wizard.sh docker/entrypoint.sh updater/updater.sh scripts/smoke-test.sh scripts/e2e-update.sh scripts/e2e-wizard.sh scripts/release-notes.sh scripts/check-version.sh
       - name: docker-compose.yml is valid (plain, with the HTTPS profile, with the updater)
@@ -76,7 +76,7 @@ jobs:
     name: Docker image and deploy.sh
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The same command a user runs: builds the image, writes .env with fresh secrets,
       # starts the container and waits for it to be healthy.
@@ -167,7 +167,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # A real install from a local registry, an update through the app's API with the updater
       # helper doing the work, then an update to a release that does not start (must roll back).
       - name: scripts/e2e-update.sh

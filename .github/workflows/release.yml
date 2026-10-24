@@ -19,7 +19,7 @@ jobs:
     name: The tag matches the code
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Versions and changelog agree with the tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: scripts/check-version.sh "${{ github.ref_name }}"
@@ -40,7 +40,7 @@ jobs:
             context: ./updater
             suffix: "-updater"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up QEMU (for the arm64 build)
         uses: docker/setup-qemu-action@v3
@@ -113,7 +113,7 @@ jobs:
       matrix:
         platform: [linux/amd64, linux/arm64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
@@ -145,7 +145,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Release notes
         run: scripts/release-notes.sh "${{ github.ref_name }}" "${{ github.repository }}" > release-notes.md
       - name: Create GitHub Release
