@@ -51,6 +51,16 @@ export function configProblems(env = process.env) {
     problems.push('FORCE_HTTPS must be true or false.');
   }
 
+  if (env.UPDATE_CHECK && !['true', 'false'].includes(env.UPDATE_CHECK)) problems.push('UPDATE_CHECK must be true or false.');
+  if (env.UPDATE_REPO && !/^[\w.-]+\/[\w.-]+$/.test(env.UPDATE_REPO)) problems.push('UPDATE_REPO must look like owner/name.');
+  if (env.UPDATE_API_BASE) {
+    try {
+      if (!['http:', 'https:'].includes(new URL(env.UPDATE_API_BASE).protocol)) throw new Error('scheme');
+    } catch {
+      problems.push('UPDATE_API_BASE must be an http(s) URL.');
+    }
+  }
+
   return problems;
 }
 

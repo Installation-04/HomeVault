@@ -6,6 +6,7 @@ import { useAsync } from '../../hooks/useAsync.js';
 import { formatDate } from '../../utils/dates.js';
 import ErrorBox from '../ErrorBox.jsx';
 import Modal from '../Modal.jsx';
+import ReauthDialog from './ReauthDialog.jsx';
 import { btnDanger, btnPrimary, btnSecondary, card, input, label } from '../ui.js';
 import { Badge, CopyButton } from './shared.jsx';
 
@@ -142,51 +143,6 @@ function EnableFlow({ onClose, onEnabled }) {
           }}
         />
       )}
-    </Modal>
-  );
-}
-
-// Disable and "new recovery codes" both need the password and a current code.
-function ReauthDialog({ title, confirmLabel, danger, onSubmit, onClose }) {
-  const { t } = useTranslation();
-  const [password, setPassword] = useState('');
-  const [code, setCode] = useState('');
-  const [useRecovery, setUseRecovery] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
-      await onSubmit({ current_password: password, ...(useRecovery ? { recovery_code: code } : { code }) });
-    } catch (err) {
-      setError(err.code === 'mfa_invalid' ? t('twofactor.code_invalid') : err.code === 'bad_current_password' ? t('settings.current_password_wrong') : err.message);
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal title={title} onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3 text-sm">
-        <div>
-          <label className={label} htmlFor="ra-pw">{t('settings.current_password')}</label>
-          <input id="ra-pw" type="password" autoComplete="current-password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </div>
-        <div>
-          <label className={label} htmlFor="ra-code">{useRecovery ? t('login.recovery_code') : t('login.mfa_code')}</label>
-          <input id="ra-code" className={input} autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required />
-          <button type="button" className="text-xs text-brand-700 hover:underline mt-1" onClick={() => { setUseRecovery((v) => !v); setCode(''); }}>
-            {useRecovery ? t('login.use_app_code') : t('login.use_recovery')}
-          </button>
-        </div>
-        {error && <p role="alert" className="text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" className={btnSecondary} onClick={onClose}>{t('common.cancel')}</button>
-          <button className={danger ? btnDanger : btnPrimary} disabled={busy}>{confirmLabel}</button>
-        </div>
-      </form>
     </Modal>
   );
 }

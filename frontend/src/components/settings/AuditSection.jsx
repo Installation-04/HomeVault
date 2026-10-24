@@ -7,7 +7,7 @@ import ErrorBox from '../ErrorBox.jsx';
 import { btnSecondary, card } from '../ui.js';
 import { FAILURE_ACTIONS } from './ActivitySection.jsx';
 
-const FILTERS = ['', 'login_failed', 'login_success', 'password_changed', 'mfa_enabled', 'mfa_disabled', 'user_created', 'user_disabled', 'user_password_reset', 'property_shared', 'property_deleted', 'bundle_exported', 'backup_downloaded'];
+const FILTERS = ['', 'login_failed', 'login_success', 'password_changed', 'mfa_enabled', 'mfa_disabled', 'user_created', 'user_disabled', 'user_password_reset', 'property_shared', 'property_deleted', 'bundle_exported', 'backup_downloaded', 'update_requested', 'update_finished'];
 
 function Detail({ value }) {
   if (!value) return null;

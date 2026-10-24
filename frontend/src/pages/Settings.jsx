@@ -12,7 +12,10 @@ import MembersSection from '../components/settings/MembersSection.jsx';
 import PropertySection from '../components/settings/PropertySection.jsx';
 import SessionsSection from '../components/settings/SessionsSection.jsx';
 import TwoFactorSection from '../components/settings/TwoFactorSection.jsx';
+import UpdateSection from '../components/settings/UpdateSection.jsx';
 import UsersAdminSection from '../components/settings/UsersAdminSection.jsx';
+import { useAsync } from '../hooks/useAsync.js';
+import { api } from '../api/client.js';
 
 // Four areas, deep-linkable as /settings?tab=security etc.
 export default function Settings() {
@@ -30,6 +33,7 @@ export default function Settings() {
     { id: 'calendar', label: t('settings.tab_calendar') },
     ...(user.is_admin ? [{ id: 'admin', label: t('settings.tab_admin') }] : []),
   ];
+  const { data: about } = useAsync(() => api.about(), []);
   const active = tabs.some((x) => x.id === params.get('tab')) ? params.get('tab') : 'property';
 
   return (
@@ -78,12 +82,15 @@ export default function Settings() {
         {active === 'calendar' && <CalendarLinksSection />}
         {active === 'admin' && user.is_admin && (
           <>
+            <UpdateSection />
             <UsersAdminSection />
             <AuditSection />
             <BackupSection />
           </>
         )}
       </div>
+
+      {about?.version && <p className="text-xs text-gray-400 text-center pt-2">{about.version === 'dev' ? 'HomeVault (dev)' : t('update.version_label', { version: about.version })}</p>}
     </div>
   );
 }

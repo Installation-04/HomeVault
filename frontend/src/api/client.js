@@ -94,7 +94,10 @@ export const api = {
   admin: {
     audit: (params) => request(`/admin/audit${qs(params)}`),
     backupUrl: () => `${BASE}/admin/backup`,
+    update: ({ refresh = false } = {}) => request(`/admin/update${refresh ? '?refresh=1' : ''}`),
+    applyUpdate: (data) => request('/admin/update/apply', { method: 'POST', body: data }),
   },
+  about: () => request('/about'),
 
   dashboard: () => request('/dashboard'),
   search: (q) => request(`/search${qs({ q })}`),

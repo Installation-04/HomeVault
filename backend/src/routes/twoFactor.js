@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { decryptSecret, encryptSecret, verifyPassword } from '../utils/crypto.js';
+import { decryptSecret, encryptSecret } from '../utils/crypto.js';
 import { audit } from '../utils/audit.js';
 import { blocked, reauthThrottle } from '../utils/limits.js';
+import { reauthenticate } from '../utils/reauth.js';
 import { issueRecoveryCodes, recoveryCodesRemaining, verifySecondFactor } from '../utils/mfa.js';
 import { generateSecret, otpauthUrl, verifyTotp } from '../utils/totp.js';
 import { revokeUserSessions } from '../utils/sessions.js';
@@ -12,27 +13,6 @@ import { wrap } from '../utils/http.js';
 
 export const twoFactorRouter = Router();
 twoFactorRouter.use(requireAuth);
-
-// Changing 2FA settings needs the password again, so a hijacked session can't
-// quietly switch off (or take over) the second factor.
-async function reauthenticate(req, res) {
-  const gate = reauthThrottle.check(String(req.user.id));
-  if (gate.blocked) {
-    blocked(res, gate);
-    return null;
-  }
-  const user = userById(req.user.id);
-  const password = req.body?.current_password;
-  const check = typeof password === 'string' ? await verifyPassword(password, user.password_hash) : { ok: false };
-  if (!check.ok) {
-    reauthThrottle.fail(String(req.user.id));
-    audit(req, 'reauth_failed');
-    res.status(400).json({ error: 'Current password is incorrect', code: 'bad_current_password' });
-    return null;
-  }
-  reauthThrottle.reset(String(req.user.id));
-  return user;
-}
 
 twoFactorRouter.get('/status', (req, res) => {
   const user = userById(req.user.id);

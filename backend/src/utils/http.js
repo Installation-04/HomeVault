@@ -1,5 +1,6 @@
-export function httpError(status, message) {
-  return Object.assign(new Error(message), { status });
+// `code` is an optional machine-readable reason the web app can translate.
+export function httpError(status, message, code) {
+  return Object.assign(new Error(message), { status }, code ? { code } : {});
 }
 
 // Positive integer from a route/body value, or null. Rejects '1.5', '1e3',

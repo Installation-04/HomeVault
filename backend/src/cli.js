@@ -37,9 +37,10 @@ const HELP = `HomeVault admin CLI
 
 Usage: node src/cli.js <command> [options]
 
-  create-admin <email> [--name "Full Name"] [--password <pw>]
-        Create an administrator. Without --password a temporary one is generated
-        and must be changed at first sign-in.
+  create-admin <email> [--name "Full Name"] [--password <pw> | --password-stdin]
+        Create an administrator. Without a password a temporary one is generated
+        and must be changed at first sign-in. --password-stdin reads it from standard
+        input, which keeps it out of the process list.
   reset-password <email> [--password <pw>]
         Set a new temporary password (signs the person out everywhere).
   disable-2fa <email>
@@ -166,6 +167,12 @@ if (!command || command === 'help' || command === '--help' || !(command in comma
 } else {
   const { positional, options } = parse(rest);
   try {
+    // Lets scripts hand over a password without it appearing in `ps` or shell history.
+    if (options['password-stdin']) {
+      const chunks = [];
+      for await (const chunk of process.stdin) chunks.push(chunk);
+      options.password = Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+    }
     await commands[command](positional, options);
   } catch (err) {
     fail(err.message);

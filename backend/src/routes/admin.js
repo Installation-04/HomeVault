@@ -6,6 +6,8 @@ import { backupDatabase, db } from '../db/index.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import { audit } from '../utils/audit.js';
 import { wrap } from '../utils/http.js';
+import { reauthenticateStrong } from '../utils/reauth.js';
+import { requestUpdate, updateSummary } from '../utils/updates.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -51,5 +53,29 @@ adminRouter.get(
       fs.rmSync(dir, { recursive: true, force: true });
       throw err;
     }
+  })
+);
+
+// --- software updates ----------------------------------------------------------------------
+
+// Which version is running, which is newest, and how an update in progress is going.
+// `?refresh=1` asks GitHub again instead of using the answer from the last few hours.
+adminRouter.get(
+  '/update',
+  wrap(async (req, res) => {
+    res.json(await updateSummary({ force: req.query.refresh === '1' }));
+  })
+);
+
+// Applies the newest release. Needs the password (and the 2FA code, if on) again: the
+// request is picked up by the updater container, which then restarts the app.
+adminRouter.post(
+  '/update/apply',
+  wrap(async (req, res) => {
+    const user = await reauthenticateStrong(req, res);
+    if (!user) return;
+    const { request, from, to } = await requestUpdate(user);
+    audit(req, 'update_requested', { target: request.id, detail: { from, to } });
+    res.status(202).json({ requested: true, id: request.id, from, to });
   })
 );

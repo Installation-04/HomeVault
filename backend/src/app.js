@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { db } from './db/index.js';
 import { trustProxySetting } from './config.js';
 import { csrfGuard } from './middleware/csrf.js';
+import { requireAuth } from './middleware/auth.js';
+import { currentVersion } from './utils/version.js';
 import { authRouter } from './routes/auth.js';
 import { adminRouter } from './routes/admin.js';
 import { propertiesRouter } from './routes/properties.js';
@@ -33,7 +35,7 @@ function errorHandler(err, req, res, next) {
     const tooBig = err.code === 'LIMIT_FILE_SIZE';
     return res.status(tooBig ? 413 : 400).json({ error: tooBig ? 'File is too large' : err.message });
   }
-  if (err.status && err.status >= 400 && err.status < 500) return res.status(err.status).json({ error: err.message });
+  if (err.status && err.status >= 400 && err.status < 500) return res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}) });
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 }
@@ -115,6 +117,7 @@ export function createApp() {
 
   app.use('/api', csrfGuard);
   app.use('/api/auth', authRouter);
+  app.get('/api/about', requireAuth, (req, res) => res.json({ version: currentVersion() }));
   app.use('/api/admin', adminRouter);
   app.use('/api/properties', propertiesRouter);
   app.use('/api/documents', documentsRouter);
