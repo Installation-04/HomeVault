@@ -73,7 +73,7 @@ jobs:
 
       # amd64 for servers and NAS boxes, arm64 for Raspberry Pi and Apple silicon.
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           platforms: linux/amd64,linux/arm64
