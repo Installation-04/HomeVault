@@ -502,7 +502,10 @@ build_or_pull() {
     HOMEVAULT_VERSION="$version" compose build "${pull_flag[@]}" "${services[@]}"
   else
     info "Downloading $(image_ref)"
-    compose pull "${services[@]}"
+    compose pull "${services[@]}" || die "Could not download $(image_ref).
+   If this release was only just published, wait a minute and try again. If you see 'denied' or 'unauthorized',
+   the image is not public yet (the maintainer must make the package public). To build from source instead:
+   ./deploy.sh install --source"
   fi
 }
 
@@ -682,7 +685,8 @@ cmd_update() {
   if is_prebuilt; then
     local pull=("$CONTAINER")
     [ -z "$new_updater" ] || pull+=(updater)
-    HOMEVAULT_IMAGE="$new_ref" UPDATER_IMAGE="$new_updater" compose pull "${pull[@]}"
+    HOMEVAULT_IMAGE="$new_ref" UPDATER_IMAGE="$new_updater" compose pull "${pull[@]}" \
+      || die "Could not download $new_ref. Nothing was changed and the current version keeps running. If the release was only just published, try again in a minute."
   else
     local build_version build=("$CONTAINER") pull_flag=(--pull)
     [ "${BUILD_PULL:-1}" != 0 ] || pull_flag=()

@@ -162,12 +162,37 @@ codes, tokens — are never written to it (this is tested).
   production with a missing, placeholder or short `APP_SECRET`, or with malformed
   security-related settings.
 
+## In-app updates
+
+The *Update* button is convenient, and it needs a privileged helper, so this is the trade-off in
+plain terms.
+
+- **The app can't touch Docker.** When an administrator confirms an update (password, and the 2FA
+  code when on), the app only writes a tiny request file into the data folder. It also checks for new
+  releases by asking `api.github.com` which release is newest; no data about you or the installation is
+  sent (turn it off with `UPDATE_CHECK=false`).
+- **The updater helper** is a separate container that watches for that file. To replace the app it
+  has access to the Docker socket, which on a normal Linux host is equivalent to root on that machine.
+  It runs as an ordinary user, with a read-only filesystem, no capabilities, no network ports and
+  resource limits, and it is only started if you choose one-click updates.
+- **What it will do** is fixed: run `./deploy.sh update` for the newest published release. The request
+  contributes nothing but "go": the version is looked up again from the project's releases, must be a
+  plain `x.y.z` version, and a malformed request is ignored. So a compromised app (or an administrator
+  session) can at worst trigger an update to the official latest release.
+- **What you trust** is whoever can publish releases to the GitHub repository (and its package
+  registry): an update downloads that release's files and images. This is the same trust as installing
+  HomeVault in the first place.
+- **If that isn't acceptable**, don't enable it (`./deploy.sh updater disable` or answer *no* in the
+  wizard): everything else works, and you update from a terminal.
+- Every request and result is recorded in the audit log.
+
 ## Supply chain
 
 CI runs the test suite, `npm audit` on production dependencies, shellcheck and a
 full install/restore cycle on every pull request. Dependabot proposes dependency,
-base-image and workflow updates. Released images are multi-architecture and carry
-build provenance and an SBOM.
+base-image and workflow updates. Released images are multi-architecture (amd64 and arm64) and carry
+build provenance and an SBOM; a CI job runs the arm64 image and a full update and rollback cycle on
+every pull request.
 
 ## What HomeVault doesn't do (yet)
 
