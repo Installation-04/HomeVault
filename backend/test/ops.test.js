@@ -111,15 +111,26 @@ test('admin can download a database backup; it is audited; others cannot', async
   assert.equal((await t.api.get('/api/admin/backup', { token: member.token })).status, 403);
   assert.equal((await t.api.get('/api/admin/backup')).status, 401);
 
-  const res = await t.api.call('GET', '/api/admin/backup', { token: admin.token, raw: true });
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get('cache-control'), 'no-store');
-  assert.match(res.headers.get('content-disposition'), /homevault-.*\.sqlite/);
-  const bytes = Buffer.from(await res.arrayBuffer());
-  assert.equal(bytes.subarray(0, 15).toString(), 'SQLite format 3');
-  assert.equal(db.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'backup_downloaded'").get().c, 1);
-  const leftovers = fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith('homevault-dl-'));
-  assert.deepEqual(leftovers, [], 'the temporary copy is cleaned up');
+  // The server makes its temporary copy under os.tmpdir(). Give this test a private one: other
+  // test processes share the system folder, and the copy is removed just after the last byte is sent.
+  const privateTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'homevault-test-tmp-'));
+  const previousTmp = process.env.TMPDIR;
+  process.env.TMPDIR = privateTmp;
+  try {
+    const res = await t.api.call('GET', '/api/admin/backup', { token: admin.token, raw: true });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.match(res.headers.get('content-disposition'), /homevault-.*\.sqlite/);
+    const bytes = Buffer.from(await res.arrayBuffer());
+    assert.equal(bytes.subarray(0, 15).toString(), 'SQLite format 3');
+    assert.equal(db.prepare("SELECT COUNT(*) AS c FROM audit_log WHERE action = 'backup_downloaded'").get().c, 1);
+    for (let i = 0; i < 50 && fs.readdirSync(privateTmp).length > 0; i += 1) await new Promise((r) => setTimeout(r, 40));
+    assert.deepEqual(fs.readdirSync(privateTmp), [], 'the temporary copy is cleaned up');
+  } finally {
+    if (previousTmp === undefined) delete process.env.TMPDIR;
+    else process.env.TMPDIR = previousTmp;
+    fs.rmSync(privateTmp, { recursive: true, force: true });
+  }
 });
 
 // ---- the CLI ----------------------------------------------------------------
