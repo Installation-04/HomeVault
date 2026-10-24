@@ -30,6 +30,9 @@ The first stable release: much stronger security, faster, new features, and a on
 ### Performance
 - Compressed responses, long-lived caching of web files, a faster database configuration with nightly maintenance, and web pages loaded on demand.
 
+### Under the hood
+- Updated to Express 5, React 19 and current versions of all other dependencies (no known vulnerabilities in the shipped packages).
+
 ### Upgrading from 0.x
 - Everyone is signed out once because sign-in now uses secure cookies. Scripts that sent an `Authorization` header or a `?token=` must sign in with a cookie.
 - `JWT_SECRET` is now `APP_SECRET` (the old name still works). `DATA_KEY` (encrypts 2FA secrets) and `SETUP_TOKEN` are new; `./deploy.sh` generates them.
