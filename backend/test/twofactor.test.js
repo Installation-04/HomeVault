@@ -217,3 +217,18 @@ test('2FA settings require a signed-in session', async () => {
     assert.equal((await t.api.call(method, path, method === 'GET' ? {} : { json: {} })).status, 401, path);
   }
 });
+
+test('an unreadable 2FA secret (e.g. DATA_KEY changed after a restore) refuses the code cleanly; recovery codes still work', async () => {
+  const u = await t.createUser(admin.token, 'wrong-key@example.com');
+  const { secret, recoveryCodes } = await enroll(u);
+  // Simulate a secret that was sealed with a different key.
+  db.prepare('UPDATE users SET totp_secret_enc = ? WHERE id = ?').run('v1:AAAAAAAAAAAAAAAA:AAAAAAAAAAAAAAAAAAAAAA==:AAAA', u.user.id);
+  advance(31);
+
+  const step1 = await loginStep1(u);
+  assert.equal(step1.status, 200);
+  const bad = await t.api.post('/api/auth/login/mfa', { mfa_token: step1.body.mfa_token, code: totpAt(secret) });
+  assert.equal(bad.status, 401, 'must be a normal "invalid code", not a 500');
+  const viaRecovery = await t.api.post('/api/auth/login/mfa', { mfa_token: step1.body.mfa_token, recovery_code: recoveryCodes[0] });
+  assert.equal(viaRecovery.status, 200);
+});

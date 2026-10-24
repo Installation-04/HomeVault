@@ -1,36 +1,26 @@
 const BASE = '/api';
 
-function getToken() {
-  try {
-    return localStorage.getItem('token');
-  } catch {
-    return null;
-  }
-}
-
 export class ApiError extends Error {
-  constructor(message, { status = 0, code = '' } = {}) {
+  constructor(message, { status = 0, code = '', retryAfter = 0 } = {}) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
-    this.code = code; // 'network' when the server could not be reached
+    this.code = code; // machine-readable: 'network', 'session', 'rate_limited', 'mfa_invalid', ...
+    this.retryAfter = retryAfter;
   }
 }
 
-// AuthContext registers this so an expired/revoked session is handled by the
-// router (keeping the page the user was on) instead of a hard page reload.
-let onUnauthorized = null;
-export function setUnauthorizedHandler(fn) {
-  onUnauthorized = fn;
+// The session lives in an HttpOnly cookie the browser attaches by itself: there
+// is no token in JavaScript, in localStorage or in any URL for a script (or a
+// log file) to leak. AuthContext registers these so an expired session or a
+// pending forced password change is handled by the router, not a page reload.
+let handlers = {};
+export function setAuthHandlers(next) {
+  handlers = next || {};
 }
 
-// Endpoints where a 401 means "wrong credentials", not "session expired".
-const CREDENTIAL_ENDPOINTS = ['/auth/login', '/auth/setup'];
-
 async function request(path, { method = 'GET', body, isForm = false, raw = false } = {}) {
-  const headers = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = { Accept: 'application/json' };
   if (!isForm && body !== undefined) headers['Content-Type'] = 'application/json';
 
   let res;
@@ -38,25 +28,27 @@ async function request(path, { method = 'GET', body, isForm = false, raw = false
     res = await fetch(`${BASE}${path}`, {
       method,
       headers,
+      credentials: 'same-origin',
       body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
     throw new ApiError('Could not reach the server', { code: 'network' });
   }
 
-  if (res.status === 401 && token && !CREDENTIAL_ENDPOINTS.includes(path)) {
-    try {
-      localStorage.removeItem('token');
-    } catch {
-      /* storage unavailable */
-    }
-    if (onUnauthorized) onUnauthorized();
-    else window.location.href = '/login';
-    throw new ApiError('Your session has expired', { status: 401, code: 'session' });
-  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new ApiError(err.error || 'Request failed', { status: res.status });
+    const code = err.code || '';
+    // Only a *session* 401 means "signed out"; a 401 from the login form is just wrong credentials.
+    if (res.status === 401 && code === 'unauthenticated') {
+      handlers.onSessionExpired?.();
+      throw new ApiError('Your session has expired', { status: 401, code: 'session' });
+    }
+    if (res.status === 403 && code === 'password_change_required') handlers.onPasswordChangeRequired?.();
+    throw new ApiError(err.error || 'Request failed', {
+      status: res.status,
+      code,
+      retryAfter: Number(res.headers.get('Retry-After')) || err.retry_after || 0,
+    });
   }
   if (raw) return res;
   if (res.status === 204) return null;
@@ -69,22 +61,43 @@ const qs = (params = {}) => {
   return s ? `?${s}` : '';
 };
 
-// <a href> / <img src> can't send an Authorization header, so the few file
-// endpoints the server allows it on accept the token as a query parameter.
-const withToken = (url) => `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(getToken() || '')}`;
-
 export const api = {
+  authStatus: () => request('/auth/status'),
   setup: (data) => request('/auth/setup', { method: 'POST', body: data }),
   login: (data) => request('/auth/login', { method: 'POST', body: data }),
+  loginMfa: (data) => request('/auth/login/mfa', { method: 'POST', body: data }),
+  logout: () => request('/auth/logout', { method: 'POST', body: {} }),
   me: () => request('/auth/me'),
   updateMe: (data) => request('/auth/me', { method: 'PATCH', body: data }),
   changePassword: (data) => request('/auth/password', { method: 'POST', body: data }),
+  sessions: {
+    list: () => request('/auth/sessions'),
+    revoke: (id) => request(`/auth/sessions/${id}`, { method: 'DELETE' }),
+    revokeOthers: () => request('/auth/sessions', { method: 'DELETE' }),
+  },
+  activity: (limit = 30) => request(`/auth/activity${qs({ limit })}`),
+  twoFactor: {
+    status: () => request('/auth/2fa/status'),
+    setup: (data) => request('/auth/2fa/setup', { method: 'POST', body: data }),
+    enable: (data) => request('/auth/2fa/enable', { method: 'POST', body: data }),
+    disable: (data) => request('/auth/2fa/disable', { method: 'POST', body: data }),
+    recoveryCodes: (data) => request('/auth/2fa/recovery-codes', { method: 'POST', body: data }),
+  },
   users: {
     list: () => request('/auth/users'),
     create: (data) => request('/auth/users', { method: 'POST', body: data }),
+    update: (id, data) => request(`/auth/users/${id}`, { method: 'PATCH', body: data }),
+    resetPassword: (id, data = {}) => request(`/auth/users/${id}/reset-password`, { method: 'POST', body: data }),
+    resetTwoFactor: (id) => request(`/auth/users/${id}/reset-2fa`, { method: 'POST', body: {} }),
+    remove: (id) => request(`/auth/users/${id}`, { method: 'DELETE' }),
+  },
+  admin: {
+    audit: (params) => request(`/admin/audit${qs(params)}`),
+    backupUrl: () => `${BASE}/admin/backup`,
   },
 
   dashboard: () => request('/dashboard'),
+  search: (q) => request(`/search${qs({ q })}`),
 
   properties: {
     list: () => request('/properties'),
@@ -97,13 +110,14 @@ export const api = {
     removeMember: (id, userId) => request(`/properties/${id}/members/${userId}`, { method: 'DELETE' }),
   },
 
+  // Downloads and <img> sources are plain URLs: the browser sends the cookie.
   documents: {
     list: (propertyId, params) => request(`/documents/property/${propertyId}${qs(params)}`),
     get: (id) => request(`/documents/${id}`),
     upload: (formData) => request('/documents', { method: 'POST', body: formData, isForm: true }),
     update: (id, data) => request(`/documents/${id}`, { method: 'PUT', body: data }),
     remove: (id) => request(`/documents/${id}`, { method: 'DELETE' }),
-    downloadUrl: (id) => withToken(`${BASE}/documents/${id}/download`),
+    downloadUrl: (id) => `${BASE}/documents/${id}/download`,
   },
 
   equipment: {
@@ -115,10 +129,11 @@ export const api = {
     uploadPhoto: (equipmentId, formData) =>
       request(`/equipment/${equipmentId}/photos`, { method: 'POST', body: formData, isForm: true }),
     removePhoto: (equipmentId, photoId) => request(`/equipment/${equipmentId}/photos/${photoId}`, { method: 'DELETE' }),
-    photoUrl: (equipmentId, photoId) => withToken(`${BASE}/equipment/${equipmentId}/photos/${photoId}`),
+    photoUrl: (equipmentId, photoId) => `${BASE}/equipment/${equipmentId}/photos/${photoId}`,
     addMaintenance: (equipmentId, data) => request(`/equipment/${equipmentId}/maintenance`, { method: 'POST', body: data }),
     removeMaintenance: (equipmentId, logId) =>
       request(`/equipment/${equipmentId}/maintenance/${logId}`, { method: 'DELETE' }),
+    exportCsvUrl: (propertyId) => `${BASE}/equipment/property/${propertyId}/export.csv`,
   },
 
   reminders: {
@@ -145,12 +160,17 @@ export const api = {
     create: (data) => request('/expenses', { method: 'POST', body: data }),
     update: (id, data) => request(`/expenses/${id}`, { method: 'PUT', body: data }),
     remove: (id) => request(`/expenses/${id}`, { method: 'DELETE' }),
-    exportCsvUrl: (propertyId, year) => withToken(`${BASE}/expenses/property/${propertyId}/export.csv${qs({ year })}`),
+    exportCsvUrl: (propertyId, year) => `${BASE}/expenses/property/${propertyId}/export.csv${qs({ year })}`,
   },
 
   calendar: {
     list: (propertyId, params) => request(`/calendar/property/${propertyId}${qs(params)}`),
+    feeds: {
+      list: () => request('/calendar/feeds'),
+      create: (data) => request('/calendar/feeds', { method: 'POST', body: data }),
+      remove: (id) => request(`/calendar/feeds/${id}`, { method: 'DELETE' }),
+    },
   },
 
-  exportBundleUrl: (propertyId) => withToken(`${BASE}/export/property/${propertyId}/bundle.zip`),
+  exportBundleUrl: (propertyId) => `${BASE}/export/property/${propertyId}/bundle.zip`,
 };

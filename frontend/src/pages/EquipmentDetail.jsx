@@ -8,7 +8,8 @@ import ErrorBox from '../components/ErrorBox.jsx';
 import ExpiryBadge from '../components/ExpiryBadge.jsx';
 import QrModal from '../components/QrModal.jsx';
 import { btnDanger, btnPrimary, card, input, label } from '../components/ui.js';
-import { formatDate, todayStr } from '../utils/dates.js';
+import { formatDate, relativeDays, todayStr } from '../utils/dates.js';
+import { CURRENCIES, PRESETS, firstDueDate } from '../utils/presets.js';
 import { formatNumber } from '../utils/format.js';
 import { EQUIPMENT_CATEGORIES } from './Equipment.jsx';
 
@@ -33,6 +34,8 @@ const toForm = (data) => ({
   location: data.location || '',
   purchase_date: data.purchase_date || '',
   warranty_expiry: data.warranty_expiry || '',
+  purchase_price: data.purchase_price ?? '',
+  purchase_currency: data.purchase_currency || 'CAD',
   notes: data.notes || '',
 });
 
@@ -84,7 +87,7 @@ export default function EquipmentDetail() {
 
   const saveInfo = (e) => {
     e.preventDefault();
-    attempt(() => api.equipment.update(id, form), t('common.saved'));
+    attempt(() => api.equipment.update(id, { ...form, purchase_price: form.purchase_price === '' ? null : Number(form.purchase_price) }), t('common.saved'));
   };
 
   const uploadPhoto = async (e) => {
@@ -119,6 +122,21 @@ export default function EquipmentDetail() {
       attempt(() => api.equipment.removeMaintenance(id, log.id));
     }
   };
+
+  // One click turns a suggested schedule into a real, recurring reminder tied to this item.
+  const addPreset = (preset) =>
+    attempt(() =>
+      api.reminders.create({
+        property_id: item.property_id,
+        equipment_id: item.id,
+        title: `${t(`presets.${preset.key}`)} – ${item.name}`,
+        due_date: firstDueDate(preset),
+        recurrence: preset.recurrence,
+        recurrence_interval_days: preset.interval,
+        category: 'maintenance',
+        lead_time_days: 7,
+      })
+    );
 
   const removeItem = async () => {
     if (!(await confirm({ message: t('equipment.delete_confirm', { name: item.name }), danger: true }))) return;
@@ -192,6 +210,17 @@ export default function EquipmentDetail() {
             <div>
               <label className={label} htmlFor="eq-war">{t('equipment.warranty_expiry')}</label>
               <input id="eq-war" type="date" className={input} value={form.warranty_expiry} onChange={(e) => set({ warranty_expiry: e.target.value })} />
+            </div>
+            <div>
+              <label className={label} htmlFor="eq-price">{t('equipment.purchase_price')}</label>
+              <div className="flex gap-2">
+                <input id="eq-price" type="number" min="0" step="0.01" inputMode="decimal" className={input} value={form.purchase_price} onChange={(e) => set({ purchase_price: e.target.value })} />
+                <select aria-label={t('expenses.currency')} className="border rounded px-2 bg-white" value={form.purchase_currency} onChange={(e) => set({ purchase_currency: e.target.value })}>
+                  {[...new Set([...CURRENCIES, form.purchase_currency])].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="sm:col-span-2">
               <label className={label} htmlFor="eq-notes">{t('properties.notes')}</label>
@@ -299,6 +328,53 @@ export default function EquipmentDetail() {
               </button>
               {photoFile && <span className="text-xs text-gray-500 truncate max-w-[10rem]">{photoFile.name}</span>}
             </form>
+          )}
+        </div>
+
+        {/* Recurring maintenance for this item */}
+        <div className={`${card} sm:col-span-2`}>
+          <h2 className="font-medium text-sm mb-2">{t('equipment.reminders')}</h2>
+          {item.reminders.length === 0 ? (
+            <p className="text-sm text-gray-400">{t('equipment.no_reminders')}</p>
+          ) : (
+            <ul className="divide-y text-sm">
+              {item.reminders.map((r) => (
+                <li key={r.id} className="py-1.5 flex justify-between gap-3">
+                  <Link to="/calendar" className={`truncate hover:text-brand-700 ${r.completed_at ? 'line-through text-gray-400' : ''}`}>
+                    {r.title}
+                  </Link>
+                  <span className="text-xs text-gray-500 shrink-0">
+                    {r.recurrence !== 'none' && `↻ ${t(`recurrence.${r.recurrence}`)} · `}
+                    {formatDate(r.due_date, locale)}
+                    {!r.completed_at && ` · ${relativeDays(r.due_date, locale)}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {canEdit && (
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs text-gray-500 mb-2">{t('equipment.suggested')}</p>
+              <div className="flex flex-wrap gap-2">
+                {(PRESETS[item.category] || PRESETS.other).map((preset) => {
+                  const title = `${t(`presets.${preset.key}`)} – ${item.name}`;
+                  const exists = item.reminders.some((r) => r.title === title && !r.completed_at);
+                  return (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      disabled={exists}
+                      onClick={() => addPreset(preset)}
+                      title={exists ? t('equipment.already_scheduled') : ''}
+                      className="text-sm px-3 py-1.5 rounded border bg-white hover:bg-brand-50 disabled:opacity-50 disabled:hover:bg-white"
+                    >
+                      {exists ? '✓' : '+'} {t(`presets.${preset.key}`)}
+                      <span className="text-xs text-gray-400"> · {preset.recurrence === 'yearly' ? t('recurrence.yearly') : t('presets.every_days', { count: preset.interval })}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
 

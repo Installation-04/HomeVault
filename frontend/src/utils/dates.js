@@ -50,3 +50,23 @@ export function weekdayLabels(locale) {
   // 2023-01-01 was a Sunday.
   return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2023, 0, 1 + i)));
 }
+
+// SQLite stores timestamps as UTC "YYYY-MM-DD HH:MM:SS"; turn one into a Date.
+export const parseSqlTime = (str) => (str ? new Date(`${String(str).replace(' ', 'T')}Z`) : null);
+
+export function formatDateTime(str, locale) {
+  const d = parseSqlTime(str);
+  return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(d) : '—';
+}
+
+// "5 minutes ago", "yesterday" -- localized.
+export function timeAgo(str, locale, now = Date.now()) {
+  const d = parseSqlTime(str);
+  if (!d || Number.isNaN(d.getTime())) return '—';
+  const seconds = Math.round((d.getTime() - now) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  for (const [unit, size] of [['day', 86400], ['hour', 3600], ['minute', 60]]) {
+    if (Math.abs(seconds) >= size) return rtf.format(Math.round(seconds / size), unit);
+  }
+  return rtf.format(0, 'second');
+}

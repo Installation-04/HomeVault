@@ -6,6 +6,25 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const { PRESET_KEYS } = await import(path.join(root, 'src/utils/presets.js'));
+
+// Every audit action the backend can record must have a human-readable label,
+// otherwise the activity lists would show raw codes like "mfa_enroll_failed".
+function backendAuditActions() {
+  const found = new Set();
+  const walkDir = (dir) => fs.readdirSync(dir, { withFileTypes: true }).forEach((e) => {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) return walkDir(p);
+    if (!p.endsWith('.js')) return;
+    const src = fs.readFileSync(p, 'utf8');
+    for (const m of src.matchAll(/\baudit\(\s*(?:req|null)\s*,\s*'([a-z_]+)'/g)) found.add(m[1]);
+    for (const m of src.matchAll(/\baudit\(\s*'([a-z_]+)'/g)) found.add(m[1]);
+  });
+  walkDir(path.join(root, '../backend/src'));
+  // Emitted through a conditional (audit(req, flag ? 'a' : 'b')), which the patterns above can't see.
+  for (const action of ['user_promoted', 'user_demoted']) found.add(action);
+  return [...found].sort();
+}
 const load = (lng) => JSON.parse(fs.readFileSync(path.join(root, 'src/i18n', `${lng}.json`), 'utf8'));
 const en = load('en');
 const fr = load('fr');
@@ -33,6 +52,9 @@ const DYNAMIC = {
   'calendar.type_': ['reminder', 'task'],
   'calendar.view_': ['list', 'month'],
   'dashboard.count_': ['documents', 'equipment', 'calendar'],
+  'audit.': backendAuditActions(),
+  'presets.': PRESET_KEYS,
+  'search.group_': ['documents', 'equipment', 'reminders', 'tasks', 'expenses'],
 };
 for (const [prefix, values] of Object.entries(DYNAMIC)) {
   for (const v of values) if (!(`${prefix}${v}` in en)) problems.push(`missing dynamic key "${prefix}${v}"`);

@@ -36,7 +36,16 @@ export function verifySecondFactor(user, { code, recoveryCode } = {}) {
   }
 
   if (code) {
-    const step = verifyTotp(decryptSecret(user.totp_secret_enc), code, { lastUsedStep: user.totp_last_step });
+    let secret;
+    try {
+      secret = decryptSecret(user.totp_secret_enc);
+    } catch {
+      // Typically DATA_KEY/APP_SECRET changed since 2FA was enabled (e.g. a restore on a new
+      // install). Refuse the code instead of failing the request; recovery codes still work.
+      console.error(`2FA secret for user ${user.id} cannot be decrypted; check DATA_KEY. Recovery codes or 'disable-2fa' still work.`);
+      return null;
+    }
+    const step = verifyTotp(secret, code, { lastUsedStep: user.totp_last_step });
     if (step === null) return null;
     // Compare-and-set so two simultaneous requests can't both spend the same step.
     const claimed = db.prepare('UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?').run(step, user.id, step).changes;
