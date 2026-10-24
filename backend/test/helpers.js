@@ -7,11 +7,21 @@ import { once } from 'node:events';
 // Env must be set before src/ modules are imported because db/index.js and
 // the upload routes read it at import time; node --test runs each test file
 // in its own process so there is no cross-file leakage.
+// Pulls the session token out of a response's Set-Cookie header (or null).
+export function sessionCookie(res) {
+  const list = res.headers.getSetCookie?.() ?? [];
+  for (const line of list) {
+    const m = /^(?:__Host-)?hv_session=([^;]*)/.exec(line);
+    if (m && m[1]) return decodeURIComponent(m[1]);
+  }
+  return null;
+}
+
 export async function startTestServer(extraEnv = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'homevault-test-'));
   Object.assign(process.env, {
     NODE_ENV: 'test',
-    JWT_SECRET: 'test-secret-test-secret-test-secret',
+    APP_SECRET: 'test-secret-test-secret-test-secret',
     DB_PATH: path.join(dir, 'data', 'db.sqlite'),
     UPLOAD_DIR: path.join(dir, 'data', 'uploads'),
     BACKUP_DIR: path.join(dir, 'data', 'backups'),
@@ -26,7 +36,8 @@ export async function startTestServer(extraEnv = {}) {
 
   async function call(method, urlPath, { token, json, form, headers = {}, raw = false } = {}) {
     const h = { ...headers };
-    if (token) h.Authorization = `Bearer ${token}`;
+    // Sessions travel in an HttpOnly cookie; `token` is that cookie's value.
+    if (token) h.Cookie = `hv_session=${token}`;
     let body;
     if (json !== undefined) {
       h['Content-Type'] = 'application/json';
@@ -43,13 +54,14 @@ export async function startTestServer(extraEnv = {}) {
     } catch {
       parsed = text;
     }
-    return { status: res.status, body: parsed, headers: res.headers };
+    return { status: res.status, body: parsed, headers: res.headers, cookie: sessionCookie(res) };
   }
 
   const api = {
     get: (p, o) => call('GET', p, o),
     post: (p, json, o) => call('POST', p, { ...o, json }),
     put: (p, json, o) => call('PUT', p, { ...o, json }),
+    patch: (p, json, o) => call('PATCH', p, { ...o, json }),
     del: (p, o) => call('DELETE', p, o),
     call,
   };
@@ -58,14 +70,17 @@ export async function startTestServer(extraEnv = {}) {
   async function setupAdmin(email = 'admin@example.com', password = 'correct-horse-battery') {
     const res = await api.post('/api/auth/setup', { email, password, name: 'Admin' });
     if (res.status !== 201) throw new Error(`setup failed: ${res.status} ${JSON.stringify(res.body)}`);
-    return { token: res.body.token, user: res.body.user, email, password };
+    return { token: res.cookie, user: res.body.user, email, password };
   }
 
-  async function createUser(adminToken, email, password = 'another-good-password', name = 'Member') {
-    const res = await api.post('/api/auth/users', { email, password, name }, { token: adminToken });
+  // Accounts made through the API normally must change their temporary password
+  // at first sign-in; tests opt out so they can use the account straight away.
+  async function createUser(adminToken, email, password = 'sturdy-fence-lamp-42', name = 'Member', extra = {}) {
+    const res = await api.post('/api/auth/users', { email, password, name, must_change_password: false, ...extra }, { token: adminToken });
     if (res.status !== 201) throw new Error(`createUser failed: ${res.status} ${JSON.stringify(res.body)}`);
     const login = await api.post('/api/auth/login', { email, password });
-    return { token: login.body.token, user: login.body.user, email, password };
+    if (login.status !== 200 || !login.cookie) throw new Error(`login failed: ${login.status} ${JSON.stringify(login.body)}`);
+    return { token: login.cookie, user: login.body.user, email, password };
   }
 
   async function createProperty(token, name = 'Test House') {

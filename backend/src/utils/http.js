@@ -51,3 +51,7 @@ export function recurrenceError(recurrence, intervalDays) {
   }
   return null;
 }
+
+// Express 4 does not forward rejected promises from async handlers to the error
+// middleware (the request would just hang). Wrap every async route in this.
+export const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);

@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { requireAuth, requirePropertyAccess } from '../middleware/auth.js';
 import { withResourceAccess } from '../middleware/resource.js';
 import { isIsoDate, mergeFields, nonEmptyString, parseId } from '../utils/http.js';
+import { toCsv } from '../utils/csv.js';
 
 export const expensesRouter = Router();
 expensesRouter.use(requireAuth);
@@ -106,16 +107,6 @@ expensesRouter.delete('/:id', withResourceAccess('expenses', 'owner'), (req, res
   res.status(204).end();
 });
 
-// Cells starting with = + - @ are executed as formulas by Excel/Sheets, so a
-// description like "=HYPERLINK(...)" entered by one family member would run
-// on whoever opens the tax-season export. Prefix them with an apostrophe.
-function csvCell(value, { text = false } = {}) {
-  let s = String(value ?? '');
-  // Only free-text columns are guarded; amounts may legitimately start with "-".
-  if (text && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return `"${s.replace(/"/g, '""')}"`;
-}
-
 // CSV export for tax season.
 expensesRouter.get('/property/:propertyId/export.csv', requirePropertyAccess(), (req, res) => {
   const { year } = req.query;
@@ -128,22 +119,11 @@ expensesRouter.get('/property/:propertyId/export.csv', requirePropertyAccess(), 
   sql += ' ORDER BY expense_date, id';
   const rows = db.prepare(sql).all(...params);
 
-  const header = ['date', 'category', 'home_office', 'amount', 'currency', 'description'];
-  const lines = [header.join(',')];
-  for (const r of rows) {
-    lines.push(
-      [
-        csvCell(r.expense_date),
-        csvCell(r.category, { text: true }),
-        csvCell(r.is_home_office ? 'yes' : 'no'),
-        csvCell(r.amount),
-        csvCell(r.currency),
-        csvCell(r.description, { text: true }),
-      ].join(',')
-    );
-  }
+  const csv = toCsv(
+    ['date', 'category', 'home_office', 'amount', 'currency', 'description'],
+    rows.map((r) => [r.expense_date, { value: r.category, text: true }, r.is_home_office ? 'yes' : 'no', r.amount, r.currency, { value: r.description, text: true }])
+  );
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.attachment(`expenses-${req.propertyId}-${/^\d{4}$/.test(String(year)) ? year : 'all'}.csv`);
-  // BOM so Excel opens the file as UTF-8 (accents in French descriptions).
-  res.send('\uFEFF' + lines.join('\r\n'));
+  res.send(csv);
 });

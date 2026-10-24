@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { requireAuth, requirePropertyAccess } from '../middleware/auth.js';
 import { isIsoDate, nonEmptyString, parseId } from '../utils/http.js';
 import { removeFiles } from '../utils/uploads.js';
+import { audit } from '../utils/audit.js';
 
 export const propertiesRouter = Router();
 propertiesRouter.use(requireAuth);
@@ -50,7 +51,9 @@ propertiesRouter.post('/', (req, res) => {
     );
     return info.lastInsertRowid;
   });
-  res.status(201).json(db.prepare('SELECT * FROM properties WHERE id = ?').get(create()));
+  const created = db.prepare('SELECT * FROM properties WHERE id = ?').get(create());
+  audit(req, 'property_created', { target: created.name });
+  res.status(201).json(created);
 });
 
 propertiesRouter.get('/:propertyId', requirePropertyAccess(), (req, res) => {
@@ -83,8 +86,10 @@ propertiesRouter.delete('/:propertyId', requirePropertyAccess({ minRole: 'owner'
       .all(req.propertyId),
   ].map((r) => r.file_path);
 
+  const name = db.prepare('SELECT name FROM properties WHERE id = ?').get(req.propertyId)?.name;
   db.prepare('DELETE FROM properties WHERE id = ?').run(req.propertyId);
   removeFiles(files);
+  audit(req, 'property_deleted', { target: name, detail: { files_removed: files.length } });
   res.status(204).end();
 });
 
@@ -109,6 +114,7 @@ propertiesRouter.post('/:propertyId/share', requirePropertyAccess({ minRole: 'ow
     `INSERT INTO property_access (property_id, user_id, role) VALUES (?, ?, ?)
      ON CONFLICT(property_id, user_id) DO UPDATE SET role = excluded.role`
   ).run(req.propertyId, user.id, newRole);
+  audit(req, 'property_shared', { target: String(email).trim().toLowerCase(), detail: { property_id: req.propertyId, role: newRole } });
   res.status(204).end();
 });
 
@@ -136,5 +142,6 @@ propertiesRouter.delete('/:propertyId/members/:userId', requirePropertyAccess({ 
     return res.status(400).json({ error: 'A property must keep at least one owner' });
   }
   db.prepare('DELETE FROM property_access WHERE property_id = ? AND user_id = ?').run(req.propertyId, userId);
+  audit(req, 'property_access_removed', { target: String(userId), detail: { property_id: req.propertyId } });
   res.status(204).end();
 });

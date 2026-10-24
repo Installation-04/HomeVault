@@ -75,9 +75,9 @@ test('owner upload -> stored under the property folder, downloadable, removed fr
   assert.equal(dl.status, 200);
   assert.equal(await dl.text(), 'hello world');
 
-  // Browser <a href> downloads can't set headers, so ?token= must work here.
+  // Links and <img> tags rely on the HttpOnly cookie; a token in the URL is not accepted anywhere.
   const viaQuery = await t.api.call('GET', `/api/documents/${doc.id}/download?token=${owner.token}`, { raw: true });
-  assert.equal(viaQuery.status, 200);
+  assert.equal(viaQuery.status, 401);
 
   assert.equal((await t.api.call('GET', `/api/documents/${doc.id}/download`, { token: stranger.token })).status, 403);
 
@@ -100,7 +100,7 @@ test('equipment photos: only images are accepted, served with a safe content typ
   const ok = await t.api.call('POST', `/api/equipment/${eq.body.id}/photos`, { token: owner.token, form: good });
   assert.equal(ok.status, 201);
 
-  const served = await t.api.call('GET', `/api/equipment/${eq.body.id}/photos/${ok.body.id}?token=${owner.token}`, { raw: true });
+  const served = await t.api.call('GET', `/api/equipment/${eq.body.id}/photos/${ok.body.id}`, { token: owner.token, raw: true });
   assert.equal(served.status, 200);
   assert.match(served.headers.get('content-type'), /^image\/png/);
   assert.equal(served.headers.get('x-content-type-options'), 'nosniff');

@@ -3,6 +3,7 @@ import archiver from 'archiver';
 import fs from 'node:fs';
 import { db } from '../db/index.js';
 import { requireAuth, requirePropertyAccess } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 
 export const exportRouter = Router();
 exportRouter.use(requireAuth);
@@ -79,6 +80,7 @@ exportRouter.get('/property/:propertyId/bundle.zip', requirePropertyAccess(), (r
     summaryLines.push('', `Note: ${missing.length} document file(s) were missing from storage and could not be included.`);
   }
 
+  audit(req, 'bundle_exported', { target: property.name });
   res.attachment(`homevault-${safeName(property.name)}-export.zip`);
 
   const archive = archiver('zip', { zlib: { level: 9 } });
