@@ -47,8 +47,10 @@ else
   else
     command -v tar >/dev/null 2>&1 || die "git or tar is needed to unpack HomeVault."
     mkdir -p "$DIR"
-    kind="tags"; [ "$REF" = main ] && kind="heads"
-    fetch "https://github.com/$REPO/archive/refs/$kind/$REF.tar.gz" | tar -xz -C "$DIR" --strip-components=1 || die "Could not download $REF from github.com/$REPO."
+    # A release tag, or (for developers) a branch.
+    if ! { fetch "https://github.com/$REPO/archive/refs/tags/$REF.tar.gz" | tar -xz -C "$DIR" --strip-components=1; } 2>/dev/null; then
+      fetch "https://github.com/$REPO/archive/refs/heads/$REF.tar.gz" | tar -xz -C "$DIR" --strip-components=1 || die "Could not download $REF from github.com/$REPO."
+    fi
     say "git is not installed, so this folder cannot fetch file updates itself; the Update button still updates the app."
   fi
 fi
