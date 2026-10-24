@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client.js';
 import { useAsync } from '../hooks/useAsync.js';
@@ -28,6 +29,8 @@ function toItems(reminders, tasks) {
       category: r.category,
       lead_time_days: r.lead_time_days,
       notify_email: r.notify_email,
+      equipment_id: r.equipment_id,
+      equipment_name: r.equipment_name,
       notes: r.notes,
     })),
     ...tasks.map((t) => ({
@@ -51,6 +54,7 @@ const emptyForm = (kind, date) => ({
   category: 'maintenance',
   lead_time_days: 7,
   notify_email: true,
+  equipment_id: '',
   recurrence: 'none',
   interval: 30,
   notes: '',
@@ -63,12 +67,13 @@ const formFromItem = (item) => ({
   category: item.category || 'maintenance',
   lead_time_days: item.lead_time_days ?? 7,
   notify_email: item.notify_email !== 0,
+  equipment_id: item.equipment_id ? String(item.equipment_id) : '',
   recurrence: item.recurrence,
   interval: item.interval || 30,
   notes: item.notes || '',
 });
 
-function ItemForm({ initial, editing, onSave, onCancel }) {
+function ItemForm({ initial, editing, equipment, onSave, onCancel }) {
   const { t } = useTranslation();
   const [form, setForm] = useState(initial);
   const [error, setError] = useState('');
@@ -176,6 +181,18 @@ function ItemForm({ initial, editing, onSave, onCancel }) {
         </div>
       )}
 
+      {isReminder && equipment.length > 0 && (
+        <div>
+          <label className={label} htmlFor="cal-eq">{t('calendar.equipment')}</label>
+          <select id="cal-eq" className={input} value={form.equipment_id} onChange={(e) => set({ equipment_id: e.target.value })}>
+            <option value="">—</option>
+            {equipment.map((e) => (
+              <option key={e.id} value={e.id}>{e.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div>
         <label className={label} htmlFor="cal-notes">{t('calendar.notes')}</label>
         <textarea id="cal-notes" rows={2} className={input} value={form.notes} onChange={(e) => set({ notes: e.target.value })} />
@@ -213,6 +230,11 @@ function ItemRow({ item, today, canEdit, onComplete, onReopen, onEdit, onDelete 
             {formatDate(item.date, i18n.language)} · {relativeDays(item.date, i18n.language)}
           </span>
           <span className="px-1.5 rounded bg-gray-100">{t(`calendar.type_${item.kind}`)}</span>
+          {item.equipment_name && (
+            <Link to={`/equipment/${item.equipment_id}`} className="px-1.5 rounded bg-gray-100 hover:text-brand-700">
+              🔧 {item.equipment_name}
+            </Link>
+          )}
           {item.recurrence !== 'none' && (
             <span title={t('calendar.recurrence')}>
               ↻ {t(`recurrence.${item.recurrence}`)}
@@ -416,6 +438,8 @@ export default function Calendar() {
     [currentId]
   );
 
+  const { data: equipment } = useAsync(() => api.equipment.list(currentId), [currentId]);
+
   const [view, setView] = useState(() => {
     try {
       return localStorage.getItem('calendarView') || 'list';
@@ -471,7 +495,7 @@ export default function Calendar() {
     };
     const payload =
       form.kind === 'reminder'
-        ? { ...common, due_date: form.date, category: form.category, lead_time_days: Number(form.lead_time_days), notify_email: form.notify_email }
+        ? { ...common, due_date: form.date, category: form.category, lead_time_days: Number(form.lead_time_days), notify_email: form.notify_email, equipment_id: form.equipment_id || null }
         : { ...common, event_date: form.date };
     const target = form.kind === 'reminder' ? api.reminders : api.tasks;
     if (editor.editing) await target.update(editor.editing.id, payload);
@@ -543,7 +567,7 @@ export default function Calendar() {
           }
           onClose={() => setEditor(null)}
         >
-          <ItemForm initial={editor.initial} editing={!!editor.editing} onSave={save} onCancel={() => setEditor(null)} />
+          <ItemForm initial={editor.initial} editing={!!editor.editing} equipment={equipment || []} onSave={save} onCancel={() => setEditor(null)} />
         </Modal>
       )}
     </div>

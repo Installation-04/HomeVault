@@ -27,6 +27,9 @@ jobs:
         working-directory: backend
       - run: npm test
         working-directory: backend
+      - name: Known vulnerabilities in production dependencies
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: backend
 
   frontend:
     name: Frontend build
@@ -45,74 +48,114 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+      - name: Known vulnerabilities in production dependencies
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: frontend
 
-  docker:
-    name: Docker image smoke test
+  scripts:
+    name: Shell scripts, compose and Caddy config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -x deploy.sh docker/entrypoint.sh scripts/smoke-test.sh
+      - name: docker-compose.yml is valid (plain and with the HTTPS profile)
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          DOMAIN=home.example.com docker compose --profile https config --quiet
+      - name: Caddyfile is valid
+        run: |
+          docker run --rm -e DOMAIN=home.example.com \
+            -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+  deploy:
+    name: Docker image and deploy.sh
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build image
-        run: docker build -t homevault:ci .
+      # The same command a user runs: builds the image, writes .env with fresh secrets,
+      # starts the container and waits for it to be healthy.
+      - name: ./deploy.sh install
+        run: ./deploy.sh install --yes
 
-      - name: Refuses to start with the placeholder JWT secret
+      - name: Refuses to start with the placeholder secret
         run: |
           set +e
-          out=$(docker run --rm -e JWT_SECRET=change-me-to-a-long-random-string homevault:ci 2>&1)
+          out=$(docker run --rm -e APP_SECRET=change-me-to-a-long-random-string homevault:latest 2>&1)
           code=$?
           echo "$out"
           test "$code" -eq 1
-          echo "$out" | grep -q JWT_SECRET
+          echo "$out" | grep -q APP_SECRET
 
-      - name: Start container on a root-owned bind mount
+      - name: Hardening is in effect
         run: |
-          mkdir -p data   # created by the runner user; the entrypoint must still be able to fix ownership
-          sudo chown root:root data
-          docker run -d --name hv -p 4000:4000 \
-            -e JWT_SECRET="$(openssl rand -hex 32)" \
-            -e DB_PATH=./data/homevault.sqlite \
-            -e UPLOAD_DIR=./data/uploads \
-            -e BACKUP_DIR=./data/backups \
-            -v "$PWD/data:/app/backend/data" \
-            homevault:ci
-          for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:4000/api/health; then exit 0; fi
-            sleep 1
-          done
-          docker logs hv
-          exit 1
+          uid=$(docker top homevault -eo pid,uid,args | awk '$3 == "node" && $4 == "src/server.js" {print $2}' | head -n 1)
+          echo "app uid: $uid"
+          test -n "$uid" && test "$uid" != "0"
+          test "$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' homevault)" = true
+          docker inspect -f '{{.HostConfig.CapDrop}}' homevault | grep -q ALL
+          docker inspect -f '{{.HostConfig.SecurityOpt}}' homevault | grep -q no-new-privileges
+          stat -c '%a' .env | grep -qx 600
+          stat -c '%a' data/homevault.sqlite | grep -qx 600
 
-      - name: Runs unprivileged
-        run: |
-          uid=$(docker exec hv sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status")
-          echo "PID 1 uid: $uid"
-          test "$uid" != "0"
+      - name: Black-box smoke test (setup, sign-in, upload, CSRF, headers)
+        run: scripts/smoke-test.sh http://127.0.0.1:8080
 
-      - name: End-to-end flow (setup, login, upload, download)
+      - name: Backup, change data, restore
         run: |
-          base=http://127.0.0.1:4000
-          token=$(curl -fsS -X POST $base/api/auth/setup -H 'Content-Type: application/json' \
-            -d '{"email":"ci@example.com","password":"ci-password-123","name":"CI"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
-          pid=$(curl -fsS -X POST $base/api/properties -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-            -d '{"name":"CI House"}' | sed -E 's/.*"id":([0-9]+).*/\1/')
-          echo "hello" > note.txt
-          doc=$(curl -fsS -X POST $base/api/documents -H "Authorization: Bearer $token" \
-            -F "property_id=$pid" -F "title=Note" -F "file=@note.txt" | sed -E 's/.*"id":([0-9]+).*/\1/')
-          test "$(curl -fsS $base/api/documents/$doc/download -H "Authorization: Bearer $token")" = "hello"
-          curl -fsS $base/ | grep -qi '<div id="root">'   # built frontend is served
-          ls -R data | head -20
-          test -f data/homevault.sqlite
+          set -e
+          # The smoke test left one property with a document; take a backup of that state.
+          ./deploy.sh backup
+          archive=$(ls -1t backups/homevault-backup-*.tar.gz | head -n 1)
+          listing=$(tar -tzf "$archive")
+          grep -qx homevault.sqlite <<<"$listing"
+          grep -q '^uploads/.*note\.txt' <<<"$listing"
+
+          # Add a second admin after the backup...
+          ./deploy.sh admin create-admin after-backup@example.com --name After
+          ./deploy.sh admin list-users | grep -q after-backup@example.com
+
+          # ...and restoring must bring the earlier state back.
+          ./deploy.sh restore "$archive" --yes
+          ./deploy.sh admin list-users | tee users.txt
+          grep -q smoke@homevault.test users.txt
+          if grep -q after-backup@example.com users.txt; then echo "restore kept data from after the backup"; exit 1; fi
+          curl -fsS http://127.0.0.1:8080/api/health
+
+      - name: ./deploy.sh update keeps the data
+        run: |
+          set -e
+          ./deploy.sh update --no-git --yes
+          ./deploy.sh admin list-users | grep -q smoke@homevault.test
+          ls backups | grep -q pre-update
+
+      - name: ./deploy.sh doctor and status
+        run: |
+          ./deploy.sh doctor
+          ./deploy.sh status
 
       - name: Stops cleanly on SIGTERM
         run: |
           start=$(date +%s)
-          docker stop -t 15 hv
+          docker stop -t 15 homevault
           elapsed=$(( $(date +%s) - start ))
-          code=$(docker inspect -f '{{.State.ExitCode}}' hv)
+          code=$(docker inspect -f '{{.State.ExitCode}}' homevault)
           echo "exit code $code after ${elapsed}s"
           test "$code" -eq 0
           test "$elapsed" -lt 10
 
+      - name: Starts again with the data intact
+        run: |
+          ./deploy.sh start
+          ./deploy.sh admin list-users | grep -q smoke@homevault.test
+
       - name: Container logs
         if: always()
-        run: docker logs hv || true
+        run: docker logs homevault || true
+
+      - name: ./deploy.sh uninstall --purge
+        if: always()
+        run: ./deploy.sh uninstall --purge --yes

@@ -7,6 +7,13 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   is_admin INTEGER NOT NULL DEFAULT 0,
   locale TEXT NOT NULL DEFAULT 'en',
+  must_change_password INTEGER NOT NULL DEFAULT 0, -- forced change after an admin reset
+  disabled_at TEXT, -- set = cannot log in; kept (not deleted) so history stays attributable
+  totp_secret_enc TEXT, -- AES-256-GCM encrypted base32 secret (confirmed)
+  totp_pending_enc TEXT, -- secret awaiting its first valid code
+  totp_enabled_at TEXT,
+  totp_last_step INTEGER NOT NULL DEFAULT 0, -- last accepted time step (blocks replay)
+  last_login_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -44,6 +51,8 @@ CREATE TABLE IF NOT EXISTS equipment (
   location TEXT, -- e.g. "kitchen", "basement"
   purchase_date TEXT,
   warranty_expiry TEXT,
+  purchase_price REAL, -- for the insurance inventory
+  purchase_currency TEXT NOT NULL DEFAULT 'CAD',
   warranty_notified_for TEXT, -- warranty_expiry value an email notice was last sent for
   notes TEXT,
   created_by INTEGER NOT NULL REFERENCES users(id),
@@ -98,6 +107,7 @@ CREATE TABLE IF NOT EXISTS reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   document_id INTEGER REFERENCES documents(id) ON DELETE SET NULL,
+  equipment_id INTEGER REFERENCES equipment(id) ON DELETE SET NULL, -- maintenance for a specific item
   title TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'maintenance', -- insurance_renewal, maintenance, payment, other
   due_date TEXT NOT NULL,
@@ -143,15 +153,50 @@ CREATE TABLE IF NOT EXISTS expenses (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_documents_property ON documents(property_id);
-CREATE INDEX IF NOT EXISTS idx_documents_expiry ON documents(expiry_date);
-CREATE INDEX IF NOT EXISTS idx_documents_equipment ON documents(equipment_id);
-CREATE INDEX IF NOT EXISTS idx_equipment_property ON equipment(property_id);
-CREATE INDEX IF NOT EXISTS idx_equipment_photos_equipment ON equipment_photos(equipment_id);
-CREATE INDEX IF NOT EXISTS idx_maintenance_logs_equipment ON maintenance_logs(equipment_id);
-CREATE INDEX IF NOT EXISTS idx_reminders_property ON reminders(property_id);
-CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
-CREATE INDEX IF NOT EXISTS idx_tasks_property ON tasks(property_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(event_date);
-CREATE INDEX IF NOT EXISTS idx_expenses_property ON expenses(property_id);
-CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);
+-- Server-side login sessions. The browser holds only a random token; we store
+-- its SHA-256, so a leaked database cannot be replayed as logins.
+CREATE TABLE IF NOT EXISTS sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT,
+  user_agent TEXT,
+  ip TEXT,
+  used_mfa INTEGER NOT NULL DEFAULT 0
+);
+
+-- One-time 2FA recovery codes (stored hashed, burned on use).
+CREATE TABLE IF NOT EXISTS recovery_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash TEXT NOT NULL,
+  used_at TEXT
+);
+
+-- Security-relevant events: who did what, when, from where.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at TEXT NOT NULL DEFAULT (datetime('now')),
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  actor TEXT, -- email at the time (kept even if the user is later removed)
+  action TEXT NOT NULL,
+  target TEXT,
+  detail TEXT,
+  ip TEXT,
+  user_agent TEXT
+);
+
+-- Subscribable calendar (ICS) feeds. The URL contains a secret token; only its
+-- hash is stored, and each feed can be revoked independently.
+CREATE TABLE IF NOT EXISTS calendar_feeds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  property_id INTEGER REFERENCES properties(id) ON DELETE CASCADE, -- NULL = every property the user can see
+  label TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_used_at TEXT
+);

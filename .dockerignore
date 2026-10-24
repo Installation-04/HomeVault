@@ -9,3 +9,4 @@ backend/.env
 frontend/.env
 .env
 *.sqlite*
+backups

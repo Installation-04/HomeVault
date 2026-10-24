@@ -10,7 +10,7 @@ export const remindersRouter = Router();
 remindersRouter.use(requireAuth);
 
 export const REMINDER_CATEGORIES = ['maintenance', 'insurance_renewal', 'payment', 'other'];
-const FIELDS = ['title', 'category', 'due_date', 'recurrence', 'recurrence_interval_days', 'lead_time_days', 'notify_email', 'notes', 'document_id'];
+const FIELDS = ['title', 'category', 'due_date', 'recurrence', 'recurrence_interval_days', 'lead_time_days', 'notify_email', 'notes', 'document_id', 'equipment_id'];
 
 // Normalizes + validates a reminder payload (already merged with defaults).
 function validate(f, propertyId) {
@@ -24,6 +24,10 @@ function validate(f, propertyId) {
   if (f.document_id) {
     const ok = db.prepare('SELECT 1 FROM documents WHERE id = ? AND property_id = ?').get(parseId(Number(f.document_id)), propertyId);
     if (!ok) return 'document_id does not belong to this property';
+  }
+  if (f.equipment_id) {
+    const ok = db.prepare('SELECT 1 FROM equipment WHERE id = ? AND property_id = ?').get(parseId(Number(f.equipment_id)), propertyId);
+    if (!ok) return 'equipment_id does not belong to this property';
   }
   return null;
 }
@@ -39,11 +43,20 @@ function normalize(f) {
     notify_email: f.notify_email === 0 || f.notify_email === false || f.notify_email === '0' || f.notify_email === 'false' ? 0 : 1,
     notes: f.notes ?? null,
     document_id: f.document_id ? Number(f.document_id) : null,
+    equipment_id: f.equipment_id ? Number(f.equipment_id) : null,
   };
 }
 
 remindersRouter.get('/property/:propertyId', requirePropertyAccess(), (req, res) => {
-  res.json(db.prepare('SELECT * FROM reminders WHERE property_id = ? ORDER BY due_date, id').all(req.propertyId));
+  res.json(
+    db
+      .prepare(
+        `SELECT r.*, e.name AS equipment_name FROM reminders r
+         LEFT JOIN equipment e ON e.id = r.equipment_id
+         WHERE r.property_id = ? ORDER BY r.due_date, r.id`
+      )
+      .all(req.propertyId)
+  );
 });
 
 remindersRouter.post('/', requirePropertyAccess({ minRole: 'owner' }), (req, res) => {
@@ -58,10 +71,10 @@ remindersRouter.post('/', requirePropertyAccess({ minRole: 'owner' }), (req, res
   const info = db
     .prepare(
       `INSERT INTO reminders
-       (property_id, document_id, title, category, due_date, recurrence, recurrence_interval_days, lead_time_days, notify_email, notes, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (property_id, document_id, equipment_id, title, category, due_date, recurrence, recurrence_interval_days, lead_time_days, notify_email, notes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(req.propertyId, n.document_id, n.title, n.category, n.due_date, n.recurrence, n.recurrence_interval_days, n.lead_time_days, n.notify_email, n.notes, req.user.id);
+    .run(req.propertyId, n.document_id, n.equipment_id, n.title, n.category, n.due_date, n.recurrence, n.recurrence_interval_days, n.lead_time_days, n.notify_email, n.notes, req.user.id);
   res.status(201).json(db.prepare('SELECT * FROM reminders WHERE id = ?').get(info.lastInsertRowid));
 });
 
@@ -73,9 +86,9 @@ remindersRouter.put('/:id', withResourceAccess('reminders', 'owner'), (req, res)
   const n = normalize(f);
 
   db.prepare(
-    `UPDATE reminders SET document_id=?, title=?, category=?, due_date=?, recurrence=?, recurrence_interval_days=?, lead_time_days=?, notify_email=?, notes=?, updated_at=datetime('now')
+    `UPDATE reminders SET document_id=?, equipment_id=?, title=?, category=?, due_date=?, recurrence=?, recurrence_interval_days=?, lead_time_days=?, notify_email=?, notes=?, updated_at=datetime('now')
      WHERE id = ?`
-  ).run(n.document_id, n.title, n.category, n.due_date, n.recurrence, n.recurrence_interval_days, n.lead_time_days, n.notify_email, n.notes, r.id);
+  ).run(n.document_id, n.equipment_id, n.title, n.category, n.due_date, n.recurrence, n.recurrence_interval_days, n.lead_time_days, n.notify_email, n.notes, r.id);
   res.json(db.prepare('SELECT * FROM reminders WHERE id = ?').get(r.id));
 });
 

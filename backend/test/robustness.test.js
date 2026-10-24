@@ -110,7 +110,7 @@ test('export bundle for an unknown property is a 404 for admins', async () => {
   assert.equal(res.status, 404);
 });
 
-test('expense CSV export works with ?token=, is guarded against spreadsheet formulas and keeps negative amounts', async () => {
+test('expense CSV export works with the session cookie, is guarded against spreadsheet formulas and keeps negative amounts', async () => {
   await t.api.post(
     '/api/expenses',
     { property_id: P.id, category: 'maintenance', amount: -25, expense_date: '2026-03-01', description: '=HYPERLINK("http://evil.example","x")' },
@@ -125,7 +125,9 @@ test('expense CSV export works with ?token=, is guarded against spreadsheet form
   const anon = await t.api.call('GET', `/api/expenses/property/${P.id}/export.csv?year=2026`, { raw: true });
   assert.equal(anon.status, 401);
 
-  const res = await t.api.call('GET', `/api/expenses/property/${P.id}/export.csv?year=2026&token=${admin.token}`, { raw: true });
+  const viaUrl = await t.api.call('GET', `/api/expenses/property/${P.id}/export.csv?year=2026&token=${admin.token}`, { raw: true });
+  assert.equal(viaUrl.status, 401, 'a token in the URL is never an acceptable credential');
+  const res = await t.api.call('GET', `/api/expenses/property/${P.id}/export.csv?year=2026`, { token: admin.token, raw: true });
   assert.equal(res.status, 200);
   assert.match(res.headers.get('content-type'), /^text\/csv/);
   assert.match(res.headers.get('content-disposition'), /expenses-\d+-2026\.csv/);

@@ -4,6 +4,8 @@ import { db } from '../db/index.js';
 import { requireAuth, requirePropertyAccess } from '../middleware/auth.js';
 import { withResourceAccess } from '../middleware/resource.js';
 import { httpError, isIsoDate, mergeFields, nonEmptyString, parseId } from '../utils/http.js';
+import { toCsv } from '../utils/csv.js';
+import { audit } from '../utils/audit.js';
 import { discardUploadUnlessStored, makeUploader, removeFiles, storeUpload } from '../utils/uploads.js';
 
 export const equipmentRouter = Router();
@@ -11,13 +13,19 @@ equipmentRouter.use(requireAuth);
 
 const uploadPhoto = makeUploader({ maxBytes: 20 * 1024 * 1024, imagesOnly: true });
 
-const FIELDS = ['name', 'category', 'brand', 'model_number', 'serial_number', 'location', 'purchase_date', 'warranty_expiry', 'notes'];
+const FIELDS = ['name', 'category', 'brand', 'model_number', 'serial_number', 'location', 'purchase_date', 'warranty_expiry', 'purchase_price', 'purchase_currency', 'notes'];
+export const EQUIPMENT_CATEGORIES = ['appliance', 'hvac', 'plumbing', 'electrical', 'tool', 'electronics', 'vehicle', 'other'];
 
 function equipmentError(f) {
   if (!nonEmptyString(f.name)) return 'name required';
   for (const key of ['purchase_date', 'warranty_expiry']) {
     if (f[key] && !isIsoDate(f[key])) return `${key} must be a YYYY-MM-DD date`;
   }
+  if (!EQUIPMENT_CATEGORIES.includes(f.category)) return `category must be one of ${EQUIPMENT_CATEGORIES.join(', ')}`;
+  if (f.purchase_price !== null && f.purchase_price !== undefined && !(Number.isFinite(Number(f.purchase_price)) && Number(f.purchase_price) >= 0)) {
+    return 'purchase_price must be a number of zero or more';
+  }
+  if (f.purchase_currency && !/^[A-Za-z]{3}$/.test(f.purchase_currency)) return 'purchase_currency must be a 3-letter code';
   return null;
 }
 
@@ -33,17 +41,43 @@ equipmentRouter.get('/property/:propertyId', requirePropertyAccess(), (req, res)
   );
 });
 
+// Home inventory for insurance claims or a move: one row per item.
+equipmentRouter.get('/property/:propertyId/export.csv', requirePropertyAccess(), (req, res) => {
+  const rows = db.prepare('SELECT * FROM equipment WHERE property_id = ? ORDER BY name COLLATE NOCASE').all(req.propertyId);
+  const csv = toCsv(
+    ['name', 'category', 'brand', 'model_number', 'serial_number', 'location', 'purchase_date', 'purchase_price', 'currency', 'warranty_expiry', 'notes'],
+    rows.map((e) => [
+      { value: e.name, text: true },
+      e.category,
+      { value: e.brand, text: true },
+      { value: e.model_number, text: true },
+      { value: e.serial_number, text: true },
+      { value: e.location, text: true },
+      e.purchase_date,
+      e.purchase_price,
+      e.purchase_price === null ? '' : e.purchase_currency,
+      e.warranty_expiry,
+      { value: e.notes, text: true },
+    ])
+  );
+  audit(req, 'inventory_exported', { target: `property ${req.propertyId}` });
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.attachment(`inventory-${req.propertyId}.csv`);
+  res.send(csv);
+});
+
 equipmentRouter.post('/', requirePropertyAccess({ minRole: 'owner' }), (req, res) => {
   const body = req.body ?? {};
   const f = mergeFields(body, {}, FIELDS);
   f.category = f.category || 'other';
+  f.purchase_currency = (f.purchase_currency || 'CAD').toUpperCase();
   const problem = equipmentError(f);
   if (problem) return res.status(400).json({ error: problem });
   const info = db
     .prepare(
       `INSERT INTO equipment
-       (property_id, name, category, brand, model_number, serial_number, location, purchase_date, warranty_expiry, notes, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (property_id, name, category, brand, model_number, serial_number, location, purchase_date, warranty_expiry, purchase_price, purchase_currency, notes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       req.propertyId,
@@ -55,6 +89,8 @@ equipmentRouter.post('/', requirePropertyAccess({ minRole: 'owner' }), (req, res
       f.location,
       f.purchase_date,
       f.warranty_expiry,
+      f.purchase_price === null ? null : Number(f.purchase_price),
+      f.purchase_currency,
       f.notes,
       req.user.id
     );
@@ -72,19 +108,36 @@ equipmentRouter.get('/:id', withResourceAccess('equipment'), (req, res) => {
   const documents = db
     .prepare('SELECT id, title, category, file_name FROM documents WHERE equipment_id = ? ORDER BY created_at DESC')
     .all(equipment.id);
-  res.json({ ...equipment, photos, maintenance, documents, role: req.propertyRole });
+  const reminders = db
+    .prepare('SELECT id, title, due_date, recurrence, recurrence_interval_days, lead_time_days, completed_at FROM reminders WHERE equipment_id = ? ORDER BY completed_at IS NOT NULL, due_date')
+    .all(equipment.id);
+  res.json({ ...equipment, photos, maintenance, documents, reminders, role: req.propertyRole });
 });
 
 equipmentRouter.put('/:id', withResourceAccess('equipment', 'owner'), (req, res) => {
   const e = req.resource;
   const f = mergeFields(req.body ?? {}, e, FIELDS);
   f.category = f.category || 'other';
+  f.purchase_currency = (f.purchase_currency || 'CAD').toUpperCase();
   const problem = equipmentError(f);
   if (problem) return res.status(400).json({ error: problem });
   db.prepare(
-    `UPDATE equipment SET name=?, category=?, brand=?, model_number=?, serial_number=?, location=?, purchase_date=?, warranty_expiry=?, notes=?, updated_at=datetime('now')
+    `UPDATE equipment SET name=?, category=?, brand=?, model_number=?, serial_number=?, location=?, purchase_date=?, warranty_expiry=?, purchase_price=?, purchase_currency=?, notes=?, updated_at=datetime('now')
      WHERE id = ?`
-  ).run(f.name.trim(), f.category, f.brand, f.model_number, f.serial_number, f.location, f.purchase_date, f.warranty_expiry, f.notes, e.id);
+  ).run(
+    f.name.trim(),
+    f.category,
+    f.brand,
+    f.model_number,
+    f.serial_number,
+    f.location,
+    f.purchase_date,
+    f.warranty_expiry,
+    f.purchase_price === null ? null : Number(f.purchase_price),
+    f.purchase_currency,
+    f.notes,
+    e.id
+  );
   res.json(db.prepare('SELECT * FROM equipment WHERE id = ?').get(e.id));
 });
 

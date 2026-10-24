@@ -11,6 +11,28 @@ Android.
 **[Releases](https://github.com/Installation-04/HomeVault/releases)** — tagged
 versions with notes on what changed.
 
+## Quick start
+
+Needs Docker with the Compose plugin and nothing else.
+
+```bash
+git clone https://github.com/Installation-04/HomeVault.git && cd HomeVault
+./deploy.sh install
+```
+
+The script checks your machine, generates the secrets (`.env`, mode 600), builds
+the image, starts HomeVault, waits until it is healthy and prints the address and
+a one-time setup token. Open the address, create the administrator account, and
+turn on two-factor authentication under *Settings → Security*.
+
+Want real HTTPS with an automatic Let's Encrypt certificate? Point a DNS name at
+the machine, open ports 80 and 443, and run
+`./deploy.sh install --domain home.example.com`.
+
+Day-to-day: `./deploy.sh update`, `backup`, `restore <file>`, `status`, `logs`,
+`doctor`. Everything is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); how the app
+protects your data is in [docs/SECURITY.md](docs/SECURITY.md).
+
 ## Screenshots
 
 | Dashboard | Documents |
@@ -29,6 +51,10 @@ versions with notes on what changed.
 | --- | --- |
 | ![QR code modal](docs/screenshots/qr-code.png) | ![Settings](docs/screenshots/settings.png) |
 
+| Find anything (Ctrl/Cmd+K) | Security: 2FA, devices, activity |
+| --- | --- |
+| ![Search](docs/screenshots/search.png) | ![Security settings](docs/screenshots/security.png) |
+
 | Mobile (bottom nav) |
 | --- |
 | <img src="docs/screenshots/mobile-dashboard.png" width="280" alt="Mobile dashboard"> |
@@ -43,11 +69,13 @@ versions with notes on what changed.
   PWA (`vite-plugin-pwa`) on iOS and Android.
 - **QR codes**: generated entirely client-side (`qrcode.react`) — no
   third-party API call, consistent with "no telemetry, data stays local."
-- **Auth**: local email/password with JWT, multi-user households via
+- **Auth**: local email/password (scrypt), server-side sessions in an
+  `HttpOnly` `SameSite=Strict` cookie that can be revoked per device, optional
+  TOTP two-factor authentication with recovery codes, multi-user households via
   per-property `owner`/`viewer` roles (see [Roles](#roles)). Roles are
   re-checked against the database on every request, so removing someone takes
-  effect immediately. Failed logins are rate limited and responses carry
-  security headers (CSP, `nosniff`, no referrer).
+  effect immediately. An audit log records sign-ins and security changes.
+  Details and limits: [docs/SECURITY.md](docs/SECURITY.md).
 - **File storage**: local volume (`UPLOAD_DIR`), path configurable to a NAS
   mount.
 - **i18n**: `react-i18next` with English and French UI strings from day one.
@@ -58,14 +86,16 @@ versions with notes on what changed.
 HomeVault/
 ├── backend/
 │   ├── src/
-│   │   ├── db/            # schema.sql + sqlite connection/backup helpers
-│   │   ├── middleware/     # JWT auth, per-property access control
-│   │   ├── routes/         # auth, properties, documents, equipment,
-│   │   │                   #   reminders, tasks, expenses, calendar,
-│   │   │                   #   export, dashboard
-│   │   ├── utils/           # recurrence math, mailer, reminder engine,
+│   │   ├── db/            # schema.sql, indexes.sql, sqlite connection/backup/maintenance
+│   │   ├── middleware/     # sessions, CSRF guard, per-property access control
+│   │   ├── routes/         # auth (+2FA, users, sessions), admin, properties,
+│   │   │                   #   documents, equipment, reminders, tasks, expenses,
+│   │   │                   #   calendar + ICS feeds, search, export, dashboard
+│   │   ├── utils/           # crypto (scrypt, AES-GCM), TOTP, sessions, audit log,
+│   │   │                   #   throttling, recurrence math, mailer, reminder engine,
 │   │   │                   #   safe upload handling
 │   │   ├── app.js           # createApp(): express app (used by tests too)
+│   │   ├── cli.js           # admin CLI: create-admin, reset-password, backup, ...
 │   │   ├── config.js        # startup configuration checks
 │   │   └── server.js        # entrypoint: cron jobs, listen, graceful shutdown
 │   └── test/                 # node:test suite (npm test)
@@ -78,15 +108,18 @@ HomeVault/
 │       │                     #   PropertySwitcher, InstallPrompt, QrModal,
 │       │                     #   Modal, ConfirmDialog, ExpiryBadge, ...
 │       ├── hooks/            # useAsync (loading/error state), useDebounced
-│       ├── pages/            # Login, Dashboard, Documents, DocumentDetail,
-│       │                     #   Equipment, EquipmentDetail, Calendar,
-│       │                     #   Expenses, Settings
+│       ├── pages/            # Login, ForcePasswordChange, Dashboard, Documents,
+│       │                     #   DocumentDetail, Equipment, EquipmentDetail,
+│       │                     #   Calendar, Expenses, Settings (lazy-loaded routes)
 │       ├── utils/            # date, recurrence and money formatting
 │       └── i18n/              # en.json / fr.json (checked by npm run check:i18n)
-├── docs/screenshots/           # README images
+├── docs/                       # SECURITY.md, DEPLOYMENT.md, screenshots/
+├── deploy.sh                   # install / update / backup / restore / doctor ...
+├── deploy/Caddyfile            # automatic-HTTPS reverse proxy (--domain)
+├── scripts/smoke-test.sh       # black-box check of a running instance (CI uses it)
 ├── docker/entrypoint.sh        # fixes data-volume ownership, drops root
 ├── Dockerfile                 # multi-stage: builds frontend, runs backend
-└── docker-compose.yml
+└── docker-compose.yml          # hardened service definition + optional HTTPS profile
 ```
 
 The backend serves the built frontend as static files in production, so the
@@ -97,14 +130,18 @@ what you already do for other services.
 
 | Table              | Purpose                                                                 |
 | ------------------- | ------------------------------------------------------------------------ |
-| `users`             | login + `is_admin` flag + preferred `locale`                            |
+| `users`             | login (scrypt hash) + `is_admin` flag + preferred `locale`; 2FA secret (encrypted), disabled / must-change-password flags |
+| `sessions`          | one row per signed-in browser: hashed token, device, IP, last seen, expiry, revoked |
+| `recovery_codes`    | single-use 2FA recovery codes (stored hashed)                           |
+| `audit_log`         | who did what, when and from where (sign-ins, failures, security changes) |
+| `calendar_feeds`    | secret calendar-subscription links (stored hashed, individually revocable) |
 | `properties`        | name, address, type, purchase_date, notes                              |
 | `property_access`   | many-to-many users↔properties with `role` (`owner`/`viewer`)            |
 | `documents`         | file + category (invoice/warranty/insurance/contract/photo/maintenance/tax/other), dates, tags, optional link to an `equipment` item |
-| `equipment`         | physical appliances/tools: brand, model number, serial number, category, location, purchase/warranty dates, notes |
+| `equipment`         | physical appliances/tools: brand, model number, serial number, category, location, purchase/warranty dates, purchase price + currency, notes |
 | `equipment_photos`  | photo gallery per equipment item (file upload or camera capture)        |
 | `maintenance_logs`  | per-equipment history: date, description, cost, who did it, optional receipt document |
-| `reminders`         | due date, `recurrence` (none/monthly/yearly/custom), lead time, optional link to a document; remembers which due date it last emailed about |
+| `reminders`         | due date, `recurrence` (none/monthly/yearly/custom), lead time, optional link to a document or equipment item; remembers which due date it last emailed about |
 | `tasks`             | calendar events per property, optionally linked to a document, with recurrence |
 | `expenses`          | amount, category, `is_home_office` flag, optional receipt document link |
 
@@ -159,6 +196,26 @@ database already existed), so there's no separate migration step to run.
     maskable icons, safe-area padding for notches), a bottom tab bar on
     phone-width screens, an install banner, and camera capture for document
     and equipment photos
+12. **Find anything**: Ctrl/Cmd+K (or the magnifier in the header) searches
+    documents, equipment, reminders, tasks and expenses across every property
+    you can see; arrow keys and Enter jump straight to the match
+13. **Home inventory**: purchase price and currency per item, a total value on
+    the equipment page, and an inventory CSV for an insurance claim
+    (spreadsheet-formula safe)
+14. **One-click maintenance schedules**: suggested tasks per equipment category
+    (replace the furnace filter, flush the water heater, test smoke alarms...)
+    become a recurring reminder linked to the item
+15. **Calendar subscriptions**: a private `.ics` link per person/device for
+    Apple Calendar, Google Calendar or Outlook, with recurrence and alarms.
+    The link's secret is shown once, stored hashed and revocable at any time
+16. **Security**: two-factor authentication (authenticator app + recovery
+    codes), a list of signed-in devices you can sign out remotely, a personal
+    "recent security activity" feed, an admin audit log, admin-created
+    accounts with a forced password change, and a password policy that
+    rejects common and personal passwords
+17. **Operations**: `./deploy.sh` for install, update (with automatic backup
+    and rollback), verified backup/restore and diagnostics; hardened
+    container; nightly SQLite maintenance and snapshots
 
 ### Roles
 
@@ -183,7 +240,7 @@ Dymo/Brother QL/Rollo).
 ```bash
 # Backend
 cd backend
-cp .env.example .env   # edit JWT_SECRET at minimum
+cp .env.example .env   # set APP_SECRET and DATA_KEY (openssl rand -hex 32)
 npm install
 npm run dev             # http://localhost:4000
 
@@ -195,8 +252,15 @@ npm run dev             # http://localhost:5173, proxies /api to :4000
 
 On first visit, use "Create your HomeVault admin account" on the login page
 (`POST /api/auth/setup`) — it's only allowed while the `users` table is
-empty, so it can't be used to re-seed a running instance. Passwords must be at
-least 8 characters.
+empty, so it can't be used to re-seed a running instance, and if `SETUP_TOKEN`
+is set the token has to be entered too. Passwords must be at least 10
+characters and not a common or personal one. Locked out? The admin CLI
+(`node src/cli.js help`, or `./deploy.sh admin help` in Docker) can create an
+administrator, reset a password or switch off a lost 2FA device.
+
+The API authenticates with the session cookie, not an `Authorization` header.
+From a script, sign in with `curl -c jar -X POST .../api/auth/login ...` and
+send `-b jar` afterwards.
 
 ### Tests and checks
 
@@ -206,59 +270,72 @@ cd frontend && npm run check:i18n  # EN/FR files in sync, no missing translation
 cd frontend && npm run build
 ```
 
-CI (`.github/workflows/ci.yml`) runs all of these plus a Docker smoke test on
-every pull request.
+CI (`.github/workflows/ci.yml`) runs all of these, `npm audit`, shellcheck, and
+a real `./deploy.sh install → smoke test → backup → restore → update` cycle on
+every pull request. You can run `scripts/smoke-test.sh <url>` against any fresh
+instance yourself.
 
 ## Running in Docker (NAS / homelab)
 
+`./deploy.sh install` (see [Quick start](#quick-start)) is the supported way.
+Under the hood it writes `.env`, then runs `docker compose`; you can do that
+yourself too:
+
 ```bash
-cp .env.example .env    # set JWT_SECRET (openssl rand -hex 32), HOST_PORT, SMTP if desired
+cp .env.example .env    # set APP_SECRET, DATA_KEY (openssl rand -hex 32) and SETUP_TOKEN
 docker compose up -d --build
 ```
 
-`JWT_SECRET` is **required**: in production the app refuses to start if it is
+`APP_SECRET` is **required**: in production the app refuses to start if it is
 missing, still the placeholder from `.env.example`, or shorter than 16
-characters (anyone who knows the placeholder could otherwise forge an admin
-login).
+characters. `DATA_KEY` encrypts the two-factor secrets in the database, so keep
+a copy of `.env` somewhere other than your backups.
 
 The container listens on `4000` internally, published on `HOST_PORT`
-(default `8080`). Mount `./data` onto your NAS volume for the SQLite
-database, uploaded files, and scheduled backups — see `docker-compose.yml`.
+(default `8080`). Point `DATA_DIR` at your NAS volume for the SQLite database,
+uploaded files and scheduled backups. The service runs with a read-only root
+filesystem, no capabilities beyond what the entrypoint needs to fix volume
+ownership, `no-new-privileges`, memory/PID limits and log rotation, and the app
+itself runs as the unprivileged `node` user. If your NAS mount refuses `chown`,
+it logs a warning and keeps running as root.
 
-Behind Traefik/Nginx: point your reverse proxy at the `homevault` service on
-its published port; no path rewriting is needed since the API and frontend
-share one origin. Set `TRUST_PROXY=1` (the number of proxies in front of the
-app) so the failed-login limiter sees real client addresses, and terminate
-TLS at the proxy — the app deliberately sends no HSTS header so plain-HTTP LAN
-installs keep working.
-
-The container starts as root only to make the mounted `./data` folder writable,
-then runs the app as the unprivileged `node` user. If your NAS mount refuses
-`chown`, it logs a warning and keeps running as root, as earlier versions did.
+Behind your own Traefik/Nginx instead of the bundled Caddy: proxy to the
+published port, set `TRUST_PROXY=1`, and once HTTPS works set
+`FORCE_HTTPS=true` (HSTS and `__Host-` cookies). Full details, backup/restore,
+upgrades and troubleshooting: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ### Upgrading from an earlier version
 
-- Set a real `JWT_SECRET` (see above) or the container will exit on start.
-- Existing reminders that are already inside their lead window will trigger
-  **one** email after the upgrade; from then on each due date is announced
-  once instead of every day.
-- Document-expiry and warranty email notices are new (`EXPIRY_NOTICE_DAYS`,
-  default 30, `0` turns them off).
-- Reminders created from the UI before this release were saved with email
-  notifications off by mistake; edit a reminder to turn them on.
+Run `./deploy.sh update` (it backs up first). Things that changed:
+
+- **Sign-in is now cookie-based.** Everyone is signed out once; scripts that
+  sent `Authorization: Bearer ...` or `?token=` must sign in with a cookie jar.
+- **`JWT_SECRET` is now `APP_SECRET`.** The old name still works. Also set
+  `DATA_KEY` (and optionally `SETUP_TOKEN`); `deploy.sh` generates missing ones.
+- Passwords are re-hashed with scrypt automatically the next time each person
+  signs in. New passwords need 10+ characters and may not be common or contain
+  your name or email.
+- Reminders already inside their lead window trigger **one** email after the
+  upgrade; from then on each due date is announced once.
+- The first start adds new tables and indexes; there is nothing to migrate by hand.
 
 ### Backups
 
-`BACKUP_CRON` (default: daily at 3am) writes a timestamped SQLite snapshot
-to `BACKUP_DIR`. Point that at your NAS's own backup/snapshot tooling for a
-second layer of protection.
+Two layers:
+
+- **Nightly snapshot** (`BACKUP_CRON`, default 3am, newest `BACKUP_KEEP` kept) of
+  the SQLite database into `BACKUP_DIR`, integrity-checked.
+- **`./deploy.sh backup`** writes a single `backups/homevault-backup-*.tar.gz`
+  with a consistent database snapshot **and** the uploaded files, safe while the
+  app is running. `./deploy.sh restore <file>` puts it back (taking a safety
+  backup first). Copy the archives off the machine, and keep `.env` with them.
 
 ## Roadmap / next phases
 
 - Push notifications via the PWA service worker, as an alternative to SMTP
 - Optional Postgres backend behind the same `db/` interface
-- Short-lived signed URLs for downloads/photos (today a session token is
-  accepted as `?token=` on those few file endpoints only)
+- Passkeys / WebAuthn as a phishing-proof second factor
+- Optional encryption of uploaded files at rest
 - Pagination for very large document libraries
 - Tailwind 4 migration (clears the remaining build-time-only `npm audit` notes)
 - Estate-transfer bundle: add a generated summary PDF alongside the current

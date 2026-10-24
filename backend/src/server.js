@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import cron from 'node-cron';
 
-import { assertConfig } from './config.js';
+import { assertConfig, intEnv } from './config.js';
 
 try {
   assertConfig();
@@ -12,7 +12,7 @@ try {
 
 // Imported after the config check so a bad configuration fails with a clear
 // message before the database or upload folders are touched.
-const { db, backupDatabase } = await import('./db/index.js');
+const { backupDatabase, closeDatabase, maintainDatabase } = await import('./db/index.js');
 const { createApp } = await import('./app.js');
 const { runReminderCheck } = await import('./utils/reminderEngine.js');
 
@@ -27,17 +27,36 @@ const reminderTask = cron.schedule(reminderCron, () => {
 
 const backupCron = process.env.BACKUP_CRON || '0 3 * * *';
 const backupDir = process.env.BACKUP_DIR || './data/backups';
-const backupTask = cron.schedule(backupCron, () => {
+const backupTask = cron.schedule(backupCron, async () => {
   try {
-    const dest = backupDatabase(backupDir);
+    const dest = await backupDatabase(backupDir, { keep: intEnv('BACKUP_KEEP', 14) });
     console.log('Backup written to', dest);
   } catch (err) {
     console.error('Backup failed:', err);
   }
 });
 
+// Expired sessions and old audit entries are pruned, then SQLite refreshes its statistics.
+const maintenanceTask = cron.schedule('30 3 * * *', () => {
+  try {
+    const result = maintainDatabase({ auditRetentionDays: intEnv('AUDIT_RETENTION_DAYS', 400) });
+    console.log(`Maintenance: ${result.expiredSessions} expired session(s), ${result.oldAudit} old audit entr(ies) removed`);
+  } catch (err) {
+    console.error('Maintenance failed:', err);
+  }
+});
+try {
+  maintainDatabase({ auditRetentionDays: intEnv('AUDIT_RETENTION_DAYS', 400) });
+} catch (err) {
+  console.error('Startup maintenance failed:', err);
+}
+
 const port = process.env.PORT || 4000;
 const server = app.listen(port, () => console.log(`HomeVault backend listening on port ${port}`));
+// Slow-loris protection and a bound on idle keep-alive sockets.
+server.headersTimeout = 20_000;
+server.requestTimeout = 5 * 60_000; // large uploads on slow links still fit
+server.keepAliveTimeout = 65_000; // longer than common proxy idle timeouts (60 s)
 
 // `docker stop` sends SIGTERM; as PID 1 node would otherwise ignore it and get
 // SIGKILLed after 10s, skipping the SQLite WAL checkpoint on close.
@@ -45,8 +64,9 @@ function shutdown(signal) {
   console.log(`${signal} received, shutting down`);
   reminderTask.stop();
   backupTask.stop();
+  maintenanceTask.stop();
   server.close(() => {
-    db.close();
+    closeDatabase();
     process.exit(0);
   });
   server.closeIdleConnections?.();

@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { requireAuth, requirePropertyAccess } from '../middleware/auth.js';
 import { withResourceAccess } from '../middleware/resource.js';
 import { httpError, isIsoDate, likePattern, mergeFields, nonEmptyString, parseId } from '../utils/http.js';
+import { audit } from '../utils/audit.js';
 import { discardUploadUnlessStored, makeUploader, removeFiles, storeUpload } from '../utils/uploads.js';
 
 export const documentsRouter = Router();
@@ -149,5 +150,6 @@ documentsRouter.delete('/:id', withResourceAccess('documents', 'owner'), (req, r
   const doc = req.resource;
   db.prepare('DELETE FROM documents WHERE id = ?').run(doc.id);
   removeFiles([doc.file_path]);
+  audit(req, 'document_deleted', { target: doc.title, detail: { property_id: doc.property_id } });
   res.status(204).end();
 });

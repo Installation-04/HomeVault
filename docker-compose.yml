@@ -1,19 +1,87 @@
+# HomeVault. Use ./deploy.sh rather than calling this directly: it generates
+# the secrets in .env, builds, starts and health-checks everything.
+name: homevault
+
 services:
   homevault:
-    build: .
-    image: homevault:latest
+    image: ${HOMEVAULT_IMAGE:-homevault:latest}
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-bookworm-slim}
+        VERSION: ${HOMEVAULT_VERSION:-dev}
     container_name: homevault
     restart: unless-stopped
-    env_file:
-      - .env
+    # No `init: true`: the entrypoint execs into node, which handles SIGTERM itself and runs no
+    # child processes. A separate init would run as root without CAP_KILL and fail to forward
+    # the stop signal to the app (which runs as an unprivileged user).
+    stop_grace_period: 15s
+    env_file: .env
     ports:
-      - "${HOST_PORT:-8080}:4000"
+      # Plain HTTP on the LAN by default. With --domain this is bound to 127.0.0.1
+      # and Caddy (below) is the only thing exposed to the internet.
+      - "${BIND_ADDRESS:-0.0.0.0}:${HOST_PORT:-8080}:4000"
     volumes:
-      # Point this at a NAS-backed path for durable storage of the
-      # SQLite database, uploaded documents/photos, and backups.
-      - ./data:/app/backend/data
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      # Point DATA_DIR at a NAS-backed path for durable storage of the SQLite
+      # database, uploaded documents/photos, and backups.
+      - ${DATA_DIR:-./data}:/app/backend/data
+
+    # --- hardening -----------------------------------------------------------
+    read_only: true # the image filesystem is immutable; only the volume and /tmp are writable
+    tmpfs:
+      - /tmp:size=128m,mode=1777,noexec,nosuid,nodev
+    cap_drop: [ALL]
+    cap_add:
+      # Only what the entrypoint needs to fix volume ownership and then drop to the
+      # unprivileged "node" user. The app process itself runs with no capabilities.
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: ${HOMEVAULT_MEMORY:-768m}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: automatic HTTPS. Enabled by `./deploy.sh install --domain ...`
+  # (docker compose --profile https up -d).
+  caddy:
+    profiles: ["https"]
+    image: caddy:2-alpine
+    container_name: homevault-caddy
+    restart: unless-stopped
+    depends_on:
+      homevault:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificates: keep them or Let's Encrypt rate limits bite
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

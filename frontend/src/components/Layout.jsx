@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext.jsx';
 import PropertySwitcher from './PropertySwitcher.jsx';
 import InstallPrompt from './InstallPrompt.jsx';
+
+const SearchPalette = lazy(() => import('./SearchPalette.jsx'));
 
 const navItem = ({ isActive }) =>
   `px-3 py-2 rounded-md text-sm font-medium ${isActive ? 'bg-brand-600 text-white' : 'text-gray-700 hover:bg-brand-50'}`;
@@ -29,6 +31,12 @@ const icons = {
   expenses: (
     <path d="M12 3v18M17 6.5c0-1.4-1.8-2.5-5-2.5S7 5.1 7 6.5 8.8 9 12 9s5 1.1 5 2.5-1.8 2.5-5 2.5-5-1.1-5-2.5" />
   ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </>
+  ),
   settings: (
     <>
       <circle cx="12" cy="12" r="3" />
@@ -48,6 +56,20 @@ function TabIcon({ name }) {
 export default function Layout({ children }) {
   const { t, i18n } = useTranslation();
   const { user, logout, updateProfile } = useAuth();
+
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Ctrl/Cmd+K opens "find anything" from every page.
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Keep <html lang> in sync for screen readers and hyphenation.
   useEffect(() => {
@@ -93,6 +115,15 @@ export default function Layout({ children }) {
               <option value="en">EN</option>
               <option value="fr">FR</option>
             </select>
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              aria-label={t('search.title')}
+              title={`${t('search.title')} (Ctrl+K)`}
+              className="p-1 rounded text-gray-500 hover:text-brand-700"
+            >
+              <TabIcon name="search" />
+            </button>
             <NavLink
               to="/settings"
               aria-label={t('nav.settings')}
@@ -110,6 +141,12 @@ export default function Layout({ children }) {
       </header>
 
       <InstallPrompt />
+
+      {searchOpen && (
+        <Suspense fallback={null}>
+          <SearchPalette onClose={() => setSearchOpen(false)} />
+        </Suspense>
+      )}
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6 pb-20 sm:pb-6">{children}</main>
 
