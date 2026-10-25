@@ -16,11 +16,19 @@ For maintainers. A release is a git tag `vX.Y.Z`; everything else follows from i
    ```
 
    Commit and merge that through a pull request.
-4. **Tag and push:**
+4. **Tag the release.** Wait for CI to pass on `main`, then in GitHub open *Actions → Tag release →
+   Run workflow* and enter the version (`X.Y.Z`). Tick *dry run* first if you want the checks
+   without creating anything. The workflow checks that the version matches the packages and the
+   changelog, that the tag is new and that CI passed on that exact commit; then it creates the
+   annotated tag `vX.Y.Z` on the tip of `main` and starts the Release workflow for it. (A tag
+   pushed with the workflow's own token does not start other workflows, which is why it starts
+   Release itself.)
+
+   Pushing the tag by hand works too and starts Release on its own:
 
    ```sh
    git checkout main && git pull
-   git tag vX.Y.Z && git push origin vX.Y.Z
+   git tag -a vX.Y.Z -m "HomeVault X.Y.Z" && git push origin vX.Y.Z
    ```
 
 5. The **Release** workflow then:

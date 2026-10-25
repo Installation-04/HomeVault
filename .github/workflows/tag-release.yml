@@ -1,0 +1,103 @@
+name: Tag release
+
+# Creates the release tag (vX.Y.Z) on the tip of main and starts the Release workflow for it.
+# Maintainers run it from Actions > Tag release > Run workflow instead of pushing a tag by hand.
+# A tag pushed with the workflow token does not start other workflows by itself, so the last step
+# starts the Release workflow on that tag explicitly.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, for example 1.0.1 (must match the package versions and CHANGELOG.md)"
+        required: true
+        type: string
+      dry_run:
+        description: "Only run the checks; do not create the tag"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Tag and release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: The version is valid and matches the code
+        id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="${INPUT_VERSION#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The version must look like 1.2.3."
+            exit 1
+          fi
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          scripts/check-version.sh "v$version"
+
+      - name: The tag does not exist yet
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          rc=0
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 || rc=$?
+          case "$rc" in
+            2) echo "$TAG is free." ;;
+            0) echo "::error::$TAG already exists. Releases are never moved; use the next version."; exit 1 ;;
+            *) echo "::error::Could not ask GitHub whether $TAG exists."; exit 1 ;;
+          esac
+
+      - name: CI passed on this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$(git rev-parse HEAD)"
+          passed="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$sha" --event push --limit 10 \
+            --json conclusion --jq 'map(select(.conclusion == "success")) | length')"
+          if [ "$passed" -lt 1 ]; then
+            echo "::error::No successful CI run for ${sha:0:7} on main yet. Wait for CI to finish (and pass), then run this again."
+            exit 1
+          fi
+          echo "CI passed on ${sha:0:7}."
+
+      - name: Create the tag
+        if: ${{ !inputs.dry_run }}
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "HomeVault ${TAG#v}"
+          git push origin "refs/tags/$TAG"
+
+      - name: Start the Release workflow for the tag
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+
+      - name: Summary
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            echo "Dry run: all checks passed for $TAG. Nothing was created." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Created $TAG and started the Release workflow for it (see the Actions tab)." >> "$GITHUB_STEP_SUMMARY"
+          fi
