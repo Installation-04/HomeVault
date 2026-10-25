@@ -20,7 +20,14 @@ const get = async (p) => {
   return { status: r.status, body: await r.json().catch(() => ({})) };
 };
 
-const before = (await get('/api/admin/update')).body;
+// The updater reports in with a heartbeat every few seconds; right after an install the first one
+// may not have landed yet, so give it a little time before calling it missing.
+let before;
+for (let i = 0; i < 30; i += 1) {
+  before = (await get('/api/admin/update')).body;
+  if (before.updater?.available) break;
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+}
 console.log(`before: running ${before.current}, updater ${JSON.stringify(before.updater)}`);
 if (!before.updater?.available) fail('the updater is not reporting in');
 

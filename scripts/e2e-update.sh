@@ -35,6 +35,10 @@ cleanup() {
   if [ "$rc" -ne 0 ]; then
     echo "--- updater log" >&2; docker logs --tail 40 homevault-updater >&2 2>&1 || true
     echo "--- app log" >&2; docker logs --tail 20 homevault >&2 2>&1 || true
+    echo "--- shared update folder" >&2
+    ls -la --time-style=full-iso "$WORK/inst/data/.update" >&2 2>&1 || true
+    docker exec homevault ls -la --time-style=full-iso /app/data/.update >&2 2>&1 || true
+    date -u +"now: %Y-%m-%dT%H:%M:%SZ" >&2
   fi
   [ -z "$MOCK_PID" ] || kill "$MOCK_PID" 2>/dev/null || true
   if [ -x "$WORK/inst/deploy.sh" ]; then (cd "$WORK/inst" && ./deploy.sh uninstall --purge --yes >/dev/null 2>&1) || true; fi
