@@ -7,6 +7,7 @@ import AccountSection from '../components/settings/AccountSection.jsx';
 import ActivitySection from '../components/settings/ActivitySection.jsx';
 import AuditSection from '../components/settings/AuditSection.jsx';
 import BackupSection from '../components/settings/BackupSection.jsx';
+import BankConnections from '../components/settings/BankConnections.jsx';
 import CalendarIntegrations from '../components/settings/CalendarIntegrations.jsx';
 import CalendarLinksSection from '../components/settings/CalendarLinksSection.jsx';
 import MembersSection from '../components/settings/MembersSection.jsx';
@@ -74,7 +75,15 @@ export default function Settings() {
           </>
         )}
         {active === 'account' && <AccountSection />}
-        {active === 'integrations' && (current ? <CalendarIntegrations property={current} /> : <p className="text-gray-500">{t('dashboard.no_properties')}</p>)}
+        {active === 'integrations' &&
+          (current ? (
+            <>
+              <BankConnections property={current} />
+              <CalendarIntegrations property={current} />
+            </>
+          ) : (
+            <p className="text-gray-500">{t('dashboard.no_properties')}</p>
+          ))}
         {active === 'security' && (
           <>
             <TwoFactorSection onChanged={() => setSecurityVersion((v) => v + 1)} />

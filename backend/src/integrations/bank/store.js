@@ -17,12 +17,20 @@ const normalize = (s) => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
 export function withKeys(transactions, source) {
   const seen = new Map();
   return transactions.map((t) => {
-    if (t.external_id) return { ...t, key: sha(`${source}|${t.account ?? ''}|id:${t.external_id}`) };
-    const base = `${source}|${t.account ?? ''}|${t.posted_date}|${t.amount.toFixed(2)}|${t.currency ?? ''}|${normalize(t.description)}`;
+    // account_id (a bank's own account identifier) wins over the display name, which a bank may change.
+    const account = t.account_id ?? t.account ?? '';
+    if (t.external_id) return { ...t, key: sha(`${source}|${account}|id:${t.external_id}`) };
+    const base = `${source}|${account}|${t.posted_date}|${t.amount.toFixed(2)}|${t.currency ?? ''}|${normalize(t.description)}`;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
     return { ...t, key: sha(`${base}|#${n}`) };
   });
+}
+
+// The currency a property mostly uses, for transactions that do not say.
+export function defaultCurrency(propertyId) {
+  const row = db.prepare('SELECT currency FROM expenses WHERE property_id = ? GROUP BY currency ORDER BY COUNT(*) DESC LIMIT 1').get(propertyId);
+  return row?.currency || 'CAD';
 }
 
 // ---- suggestions -----------------------------------------------------------------------------

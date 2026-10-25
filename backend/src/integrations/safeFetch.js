@@ -136,15 +136,18 @@ function requestOnce(url, { method, headers, body, maxBytes, timeoutMs, allowed 
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 // Resolves to { status, headers, text, url } for the final response. Non-2xx statuses are returned, not thrown.
+// sameOriginOnly: requests that carry credentials must never be replayed to another host by a redirect.
 export async function safeFetch(raw, options = {}) {
-  const { method = 'GET', headers = {}, body, maxBytes = 8 * 1024 * 1024, timeoutMs = 20_000, maxRedirects = 4, allowPrivate = allowPrivateHosts(), addressPolicy } = options;
+  const { method = 'GET', headers = {}, body, maxBytes = 8 * 1024 * 1024, timeoutMs = 20_000, maxRedirects = 4, allowPrivate = allowPrivateHosts(), addressPolicy, sameOriginOnly = false } = options;
   const allowed = addressPolicy ?? (allowPrivate ? () => true : isPublicAddress);
   let url = checkUrl(raw, { allowPrivate, addressPolicy });
   for (let hop = 0; ; hop += 1) {
     const res = await requestOnce(url, { method, headers, body, maxBytes, timeoutMs, allowed });
     if (REDIRECTS.has(res.status) && res.headers.location) {
       if (hop >= maxRedirects) throw fail('The address redirects too many times.', 'too_many_redirects');
-      url = checkUrl(new URL(res.headers.location, url).href, { allowPrivate, addressPolicy });
+      const next = checkUrl(new URL(res.headers.location, url).href, { allowPrivate, addressPolicy });
+      if (sameOriginOnly && next.origin !== url.origin) throw fail('The server redirected to a different address, which is not followed for requests that carry credentials.', 'cross_origin_redirect');
+      url = next;
       continue;
     }
     return { ...res, url: url.href };
