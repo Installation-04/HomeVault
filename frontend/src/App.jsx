@@ -18,6 +18,7 @@ const Equipment = lazy(() => import('./pages/Equipment.jsx'));
 const EquipmentDetail = lazy(() => import('./pages/EquipmentDetail.jsx'));
 const Calendar = lazy(() => import('./pages/Calendar.jsx'));
 const Expenses = lazy(() => import('./pages/Expenses.jsx'));
+const BankImport = lazy(() => import('./pages/BankImport.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
 
 function Loading() {
@@ -62,6 +63,7 @@ function AppRoutes() {
                       <Route path="/equipment/:id" element={<EquipmentDetail />} />
                       <Route path="/calendar" element={gated(<Calendar />)} />
                       <Route path="/expenses" element={gated(<Expenses />)} />
+                      <Route path="/expenses/import" element={gated(<BankImport />)} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>

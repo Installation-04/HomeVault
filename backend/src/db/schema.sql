@@ -239,3 +239,40 @@ CREATE TABLE IF NOT EXISTS external_events (
   end_time TEXT,
   all_day INTEGER NOT NULL DEFAULT 0
 );
+
+-- Bank transactions waiting for a decision (from an imported statement file or a connected bank). Nothing
+-- reaches Expenses until someone accepts it. dedupe_key makes re-importing an overlapping statement harmless.
+CREATE TABLE IF NOT EXISTS bank_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  integration_id INTEGER REFERENCES integrations(id) ON DELETE SET NULL,
+  source TEXT NOT NULL, -- file | simplefin
+  account TEXT,
+  dedupe_key TEXT NOT NULL,
+  posted_date TEXT NOT NULL,
+  amount REAL NOT NULL, -- negative = money out
+  currency TEXT NOT NULL DEFAULT 'CAD',
+  description TEXT NOT NULL,
+  suggested_category TEXT,
+  suggested_home_office INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'new', -- new | imported | ignored
+  expense_id INTEGER REFERENCES expenses(id) ON DELETE SET NULL,
+  batch TEXT, -- one import = one batch, so a wrong import can be undone
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  decided_at TEXT,
+  decided_by INTEGER REFERENCES users(id),
+  UNIQUE (property_id, dedupe_key)
+);
+
+-- "If the description contains X, suggest category Y" (or skip it).
+CREATE TABLE IF NOT EXISTS bank_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  pattern TEXT NOT NULL,
+  action TEXT NOT NULL DEFAULT 'categorize', -- categorize | ignore
+  category TEXT,
+  is_home_office INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+

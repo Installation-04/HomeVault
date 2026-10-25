@@ -28,3 +28,6 @@ CREATE INDEX IF NOT EXISTS idx_integrations_property ON integrations(property_id
 CREATE INDEX IF NOT EXISTS idx_integrations_due ON integrations(paused, next_sync_at);
 CREATE INDEX IF NOT EXISTS idx_external_events_range ON external_events(property_id, start_date);
 CREATE INDEX IF NOT EXISTS idx_external_events_integration ON external_events(integration_id);
+CREATE INDEX IF NOT EXISTS idx_bank_tx_inbox ON bank_transactions(property_id, status, posted_date);
+CREATE INDEX IF NOT EXISTS idx_bank_tx_batch ON bank_transactions(property_id, batch);
+CREATE INDEX IF NOT EXISTS idx_bank_rules_property ON bank_rules(property_id);

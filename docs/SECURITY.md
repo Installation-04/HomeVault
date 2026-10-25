@@ -184,6 +184,28 @@ Pulling data from addresses that people type in is a classic way to attack a ser
   events. Each of those actions is audited.
 - **Off switch.** `INTEGRATIONS_ENABLED=false` stops all outbound syncing and refuses new connections.
 
+## Bank statements
+
+Owners can import a statement file from Expenses > Import from bank.
+Purchase descriptions say a lot about a household, so this is treated as more sensitive than the expense
+totals everyone with access to a property can already see.
+
+- **Owners only.** Viewers and editors cannot open the page or call any of its endpoints; the check is made
+  on the server for every request, not just hidden in the interface.
+- **Nothing is stored until you say so.** A statement is read in memory (5 MB limit, never written to disk)
+  and previewed first. Transactions then wait in an inbox, and only the ones you accept become expenses.
+  HomeVault suggests a category from a few keywords and from your rules, but never files anything by itself.
+- **Safe to repeat.** Each transaction gets a fingerprint (the bank's own id when the file has one, otherwise
+  date, amount and description), so importing the same or an overlapping statement twice adds nothing.
+  An import can be undone while its transactions are still waiting.
+- **Bounded input.** Files are limited in size (5 MB) and rows (20,000), descriptions are truncated, a non-statement (binary) file is
+  refused, and spreadsheet formulas in descriptions are kept as plain text and are neutralized again when
+  expenses are exported to CSV.
+- **Kept out of the logs.** The audit log records that an import happened and how many transactions, never
+  their descriptions or amounts.
+- **Deleted with the property.** Imported transactions and rules are removed when the property is, and
+  they are part of the normal backups (which already contain your expenses).
+
 ## In-app updates
 
 The *Update* button is convenient, and it needs a privileged helper, so this is the trade-off in

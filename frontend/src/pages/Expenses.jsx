@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useProperties } from '../property/PropertyContext.jsx';
 import { api } from '../api/client.js';
@@ -201,6 +202,9 @@ export default function Expenses() {
 
   const { data: years, reload: reloadYears } = useAsync(() => api.expenses.years(currentId), [currentId]);
   const { data: documents } = useAsync(() => api.documents.list(currentId, {}), [currentId]);
+  // Bank transactions waiting for review (owners only): a nudge beside the import link. Never blocks the page.
+  const { data: waitingData } = useAsync(() => (canEdit ? api.bank.transactions(currentId, { status: 'new', limit: 1 }).catch(() => null) : null), [currentId, canEdit]);
+  const waiting = waitingData?.counts?.new ?? 0;
   const { data, error, loading, reload } = useAsync(
     () => api.expenses.list(currentId, { year, category, home_office: homeOfficeOnly ? 'true' : '' }),
     [currentId, year, category, homeOfficeOnly]
@@ -260,6 +264,11 @@ export default function Expenses() {
           <a href={api.expenses.exportCsvUrl(currentId, year)} className="text-brand-700 hover:underline">
             {t('expenses.export_csv')}
           </a>
+          {canEdit && (
+            <Link to="/expenses/import" className="text-brand-700 hover:underline">
+              {t('expenses.bank_import')}{waiting > 0 && <span className="ml-1 rounded-full bg-brand-100 px-1.5 text-xs">{waiting}</span>}
+            </Link>
+          )}
           {canEdit && (
             <button className={btnPrimary} onClick={() => setEditor({ editing: null, initial: { ...emptyForm(), currency: expenses[0]?.currency || 'CAD' } })}>
               + {t('expenses.add')}
