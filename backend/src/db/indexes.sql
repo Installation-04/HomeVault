@@ -24,3 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, at);
 CREATE INDEX IF NOT EXISTS idx_recovery_user ON recovery_codes(user_id);
 CREATE INDEX IF NOT EXISTS idx_feeds_user ON calendar_feeds(user_id);
+CREATE INDEX IF NOT EXISTS idx_integrations_property ON integrations(property_id);
+CREATE INDEX IF NOT EXISTS idx_integrations_due ON integrations(paused, next_sync_at);
+CREATE INDEX IF NOT EXISTS idx_external_events_range ON external_events(property_id, start_date);
+CREATE INDEX IF NOT EXISTS idx_external_events_integration ON external_events(integration_id);

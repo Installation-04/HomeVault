@@ -16,6 +16,7 @@ const { backupDatabase, closeDatabase, maintainDatabase } = await import('./db/i
 const { createApp } = await import('./app.js');
 const { runReminderCheck } = await import('./utils/reminderEngine.js');
 const { ensureUpdateDir } = await import('./utils/updates.js');
+const { runDueIntegrations } = await import('./integrations/service.js');
 
 ensureUpdateDir();
 const app = createApp();
@@ -37,6 +38,22 @@ const backupTask = cron.schedule(backupCron, async () => {
     console.error('Backup failed:', err);
   }
 });
+
+// Connected calendars (and banks) are refreshed when they come due; each has its own interval, and a
+// failing one backs off. Every few minutes is only how often we look at what is due.
+let integrationsRunning = false;
+const syncDue = () => {
+  if (integrationsRunning) return;
+  integrationsRunning = true;
+  runDueIntegrations()
+    .then((r) => r.failed && console.log(`Integrations: ${r.ran} synced, ${r.failed} failed (see Settings > Integrations)`))
+    .catch((err) => console.error('Integration sync failed:', err))
+    .finally(() => {
+      integrationsRunning = false;
+    });
+};
+const integrationsTask = cron.schedule('*/5 * * * *', syncDue);
+setTimeout(syncDue, 30_000).unref(); // catch up after a restart
 
 // Expired sessions and old audit entries are pruned, then SQLite refreshes its statistics.
 const maintenanceTask = cron.schedule('30 3 * * *', () => {
@@ -67,6 +84,7 @@ function shutdown(signal) {
   reminderTask.stop();
   backupTask.stop();
   maintenanceTask.stop();
+  integrationsTask.stop();
   server.close(() => {
     closeDatabase();
     process.exit(0);

@@ -23,6 +23,7 @@ import { feedsRouter, publicFeedRouter } from './routes/feeds.js';
 import { searchRouter } from './routes/search.js';
 import { exportRouter } from './routes/export.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { integrationsRouter } from './routes/integrations.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -130,6 +131,7 @@ export function createApp() {
   app.use('/api/search', searchRouter);
   app.use('/api/export', exportRouter);
   app.use('/api/dashboard', dashboardRouter);
+  app.use('/api/integrations', integrationsRouter);
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
   // --- Frontend (single-container deploy) --------------------------------

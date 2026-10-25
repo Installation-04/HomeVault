@@ -7,6 +7,7 @@ import AccountSection from '../components/settings/AccountSection.jsx';
 import ActivitySection from '../components/settings/ActivitySection.jsx';
 import AuditSection from '../components/settings/AuditSection.jsx';
 import BackupSection from '../components/settings/BackupSection.jsx';
+import CalendarIntegrations from '../components/settings/CalendarIntegrations.jsx';
 import CalendarLinksSection from '../components/settings/CalendarLinksSection.jsx';
 import MembersSection from '../components/settings/MembersSection.jsx';
 import PropertySection from '../components/settings/PropertySection.jsx';
@@ -31,6 +32,7 @@ export default function Settings() {
     { id: 'account', label: t('settings.tab_account') },
     { id: 'security', label: t('settings.tab_security') },
     { id: 'calendar', label: t('settings.tab_calendar') },
+    ...(canEdit ? [{ id: 'integrations', label: t('settings.tab_integrations') }] : []),
     ...(user.is_admin ? [{ id: 'admin', label: t('settings.tab_admin') }] : []),
   ];
   const { data: about } = useAsync(() => api.about(), []);
@@ -72,6 +74,7 @@ export default function Settings() {
           </>
         )}
         {active === 'account' && <AccountSection />}
+        {active === 'integrations' && (current ? <CalendarIntegrations property={current} /> : <p className="text-gray-500">{t('dashboard.no_properties')}</p>)}
         {active === 'security' && (
           <>
             <TwoFactorSection onChanged={() => setSecurityVersion((v) => v + 1)} />

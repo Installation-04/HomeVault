@@ -162,6 +162,28 @@ codes, tokens — are never written to it (this is tested).
   production with a missing, placeholder or short `APP_SECRET`, or with malformed
   security-related settings.
 
+## Integrations
+
+Settings > Integrations lets an owner connect outside services (today: calendars by address, read-only).
+Pulling data from addresses that people type in is a classic way to attack a server, so:
+
+- **No reaching into your network.** The server only fetches `http(s)` addresses, with no embedded
+  credentials, and refuses any address that resolves to a private, loopback, link-local (including cloud
+  metadata, `169.254.169.254`), carrier-grade-NAT, multicast or reserved range, in both IPv4 and IPv6
+  and including IPv4-mapped forms. The check is made on the address actually connected to (so a name that
+  answers "public" to a check and "private" to the connection cannot get through), and every redirect
+  is checked again. Subscribing to a calendar on your own LAN needs `INTEGRATIONS_ALLOW_PRIVATE_HOSTS=true`.
+- **Bounded.** Responses are limited in size (8 MB), time (20 s), redirects (4) and compression is
+  refused; a calendar can hold at most 5000 events and a repeating rule is capped, so a hostile file
+  cannot hang or flood the server.
+- **Secrets stay secret.** A private calendar address is a credential. It is stored encrypted (AES-256-GCM
+  with the data key, like 2FA secrets), is never returned by the API, and is never written to the audit
+  log or error messages. Backups contain it only in encrypted form.
+- **Read-only, owners only.** Nothing is written back to the source. Only property owners (and
+  administrators) can add, pause or remove a connection; everyone with access to the property sees the
+  events. Each of those actions is audited.
+- **Off switch.** `INTEGRATIONS_ENABLED=false` stops all outbound syncing and refuses new connections.
+
 ## In-app updates
 
 The *Update* button is convenient, and it needs a privileged helper, so this is the trade-off in

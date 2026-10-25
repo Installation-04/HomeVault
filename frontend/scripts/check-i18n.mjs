@@ -22,7 +22,7 @@ function backendAuditActions() {
   });
   walkDir(path.join(root, '../backend/src'));
   // Emitted through a conditional (audit(req, flag ? 'a' : 'b')), which the patterns above can't see.
-  for (const action of ['user_promoted', 'user_demoted']) found.add(action);
+  for (const action of ['user_promoted', 'user_demoted', 'integration_paused', 'integration_resumed']) found.add(action);
   return [...found].sort();
 }
 const load = (lng) => JSON.parse(fs.readFileSync(path.join(root, 'src/i18n', `${lng}.json`), 'utf8'));
@@ -56,6 +56,7 @@ const DYNAMIC = {
   'presets.': PRESET_KEYS,
   'search.group_': ['documents', 'equipment', 'reminders', 'tasks', 'expenses'],
   'theme.': ['system', 'light', 'dark'],
+  'integrations.status_': ['ok', 'error', 'paused'],
 };
 for (const [prefix, values] of Object.entries(DYNAMIC)) {
   for (const v of values) if (!(`${prefix}${v}` in en)) problems.push(`missing dynamic key "${prefix}${v}"`);

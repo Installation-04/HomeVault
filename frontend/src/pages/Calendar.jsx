@@ -8,15 +8,31 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import ErrorBox from '../components/ErrorBox.jsx';
 import Modal from '../components/Modal.jsx';
 import { btnPrimary, btnSecondary, input, label } from '../components/ui.js';
-import { addDays, formatDate, monthLabel, parseDate, relativeDays, toDateStr, todayStr, weekdayLabels } from '../utils/dates.js';
+import { addDays, formatDate, formatTime, monthLabel, parseDate, relativeDays, toDateStr, todayStr, weekdayLabels } from '../utils/dates.js';
 import { projectOccurrences } from '../utils/recurrence.js';
 
 const REMINDER_CATEGORIES = ['maintenance', 'insurance_renewal', 'payment', 'other'];
 const RECURRENCES = ['none', 'monthly', 'yearly', 'custom'];
 
-// Reminders and tasks live in separate tables; the page treats them as one list.
-function toItems(reminders, tasks) {
+// Reminders and tasks live in separate tables; the page treats them as one list. Events read from
+// subscribed calendars join them as read-only items.
+function toItems(reminders, tasks, external = []) {
   return [
+    ...external.map((e) => ({
+      key: `external-${e.id}-${e.date}`,
+      kind: 'external',
+      id: e.id,
+      title: e.title,
+      date: e.date,
+      time: e.time,
+      end_time: e.end_time,
+      all_day: e.all_day,
+      location: e.location,
+      source: e.source,
+      continues: e.continues,
+      recurrence: 'none',
+      completed_at: null,
+    })),
     ...reminders.map((r) => ({
       key: `reminder-${r.id}`,
       kind: 'reminder',
@@ -44,7 +60,7 @@ function toItems(reminders, tasks) {
       completed_at: t.completed_at,
       notes: t.notes,
     })),
-  ].sort((a, b) => (a.date === b.date ? a.title.localeCompare(b.title) : a.date < b.date ? -1 : 1));
+  ].sort((a, b) => (a.date === b.date ? (a.time || '').localeCompare(b.time || '') || a.title.localeCompare(b.title) : a.date < b.date ? -1 : 1));
 }
 
 const emptyForm = (kind, date) => ({
@@ -207,8 +223,33 @@ function ItemForm({ initial, editing, equipment, onSave, onCancel }) {
   );
 }
 
+// An event from a subscribed calendar: nothing to complete, edit or delete here (the source is the master).
+function ExternalRow({ item }) {
+  const { t, i18n } = useTranslation();
+  const when = item.all_day
+    ? t('calendar.all_day')
+    : `${formatTime(item.time, i18n.language)}${item.end_time && item.end_time !== item.time ? ` – ${formatTime(item.end_time, i18n.language)}` : ''}`;
+  return (
+    <li className="p-3 flex items-center gap-3 text-sm">
+      <span aria-hidden="true" className="w-6 h-6 shrink-0 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs">↻</span>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium truncate">{item.title}</p>
+        <p className="text-xs text-gray-500 flex flex-wrap items-center gap-x-2">
+          <span>
+            {formatDate(item.date, i18n.language)} · {relativeDays(item.date, i18n.language)}
+          </span>
+          <span>{item.continues ? t('calendar.continues') : when}</span>
+          <span className="px-1.5 rounded bg-emerald-100 text-emerald-800">{item.source}</span>
+          {item.location && <span className="truncate">📍 {item.location}</span>}
+        </p>
+      </div>
+    </li>
+  );
+}
+
 function ItemRow({ item, today, canEdit, onComplete, onReopen, onEdit, onDelete }) {
   const { t, i18n } = useTranslation();
+  if (item.kind === 'external') return <ExternalRow item={item} />;
   const done = !!item.completed_at;
   const overdue = !done && item.date < today;
   return (
@@ -274,7 +315,7 @@ function ListView({ items, showCompleted, ...rowProps }) {
   const { t } = useTranslation();
   const today = todayStr();
   const soon = addDays(today, 30);
-  const open = items.filter((i) => !i.completed_at);
+  const open = items.filter((i) => !i.completed_at && !(i.kind === 'external' && i.date < today));
   const groups = [
     [t('calendar.overdue'), 'danger', open.filter((i) => i.date < today)],
     [t('calendar.next_30'), 'default', open.filter((i) => i.date >= today && i.date <= soon)],
@@ -335,6 +376,7 @@ function MonthView({ items, showCompleted, cursor, setCursor, selected, setSelec
   };
 
   const chipClass = ({ item, projected }) => {
+    if (item.kind === 'external') return 'bg-emerald-100 text-emerald-800';
     if (item.completed_at) return 'bg-gray-100 text-gray-400 line-through';
     if (projected) return 'border border-dashed border-brand-500 text-brand-700 bg-surface';
     if (item.date < today) return 'bg-red-100 text-red-700';
@@ -388,6 +430,7 @@ function MonthView({ items, showCompleted, cursor, setCursor, selected, setSelec
               <span className="hidden sm:flex flex-col gap-0.5 min-w-0">
                 {entries.slice(0, 2).map((e, i) => (
                   <span key={i} className={`text-[11px] leading-tight px-1 py-0.5 rounded truncate ${chipClass(e)}`}>
+                    {e.item.kind === 'external' && e.item.time && !e.item.continues ? `${formatTime(e.item.time, locale)} ` : ''}
                     {e.item.title}
                   </span>
                 ))}
@@ -434,7 +477,13 @@ export default function Calendar() {
   const confirm = useConfirm();
   const { currentId, canEdit } = useProperties();
   const { data, error, reload } = useAsync(
-    () => Promise.all([api.reminders.list(currentId), api.tasks.list(currentId)]),
+    () =>
+      Promise.all([
+        api.reminders.list(currentId),
+        api.tasks.list(currentId),
+        // Events from subscribed calendars are a bonus: a problem there must not hide reminders and tasks.
+        api.calendar.list(currentId, { only: 'external', from: addDays(todayStr(), -62), to: addDays(todayStr(), 400) }).catch(() => []),
+      ]),
     [currentId]
   );
 
@@ -454,7 +503,7 @@ export default function Calendar() {
   const [editor, setEditor] = useState(null); // { editing: item | null, initial }
   const [actionError, setActionError] = useState(null);
 
-  const items = useMemo(() => (data ? toItems(data[0], data[1]) : []), [data]);
+  const items = useMemo(() => (data ? toItems(data[0], data[1], data[2]) : []), [data]);
 
   const chooseView = (v) => {
     setView(v);
