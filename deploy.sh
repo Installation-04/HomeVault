@@ -410,7 +410,6 @@ ensure_env() {
   [ -z "$OPT_PORT" ] || env_set HOST_PORT "$OPT_PORT"
   [ -z "$OPT_BIND" ] || env_set BIND_ADDRESS "$OPT_BIND"
   [ -z "$OPT_DATA_DIR" ] || env_set DATA_DIR "$OPT_DATA_DIR"
-  [ -z "$OPT_IMAGE" ] || env_set HOMEVAULT_IMAGE "$OPT_IMAGE"
   if [ -n "$OPT_DOMAIN" ]; then
     [[ "$OPT_DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ && "$OPT_DOMAIN" == *.* ]] || die "'$OPT_DOMAIN' doesn't look like a domain name."
     env_set DOMAIN "$OPT_DOMAIN"

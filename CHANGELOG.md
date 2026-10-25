@@ -2,6 +2,11 @@
 
 All notable changes to HomeVault. Versions follow [semantic versioning](https://semver.org/).
 
+## [1.0.1] - 2026-10-25
+
+### Fixed
+- **Unattended installs**: running the installer without a terminal (for example from a script, over SSH without a session, or from a provisioning tool) stopped with "Could not download auto". It now picks the newest ready-made image as intended. Installing from a terminal, with the question-and-answer setup, was not affected.
+
 ## [1.0.0] - 2026-10-24
 
 The first stable release: much stronger security, faster, new features, and a one-command install that runs on Intel/AMD and Raspberry Pi.
