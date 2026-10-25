@@ -70,3 +70,10 @@ export function timeAgo(str, locale, now = Date.now()) {
   }
   return rtf.format(0, 'second');
 }
+
+// "14:30" -> "2:30 PM" / "14 h 30", in the reader's language.
+export function formatTime(hhmm, locale) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(new Date(2000, 0, 1, h, m));
+}

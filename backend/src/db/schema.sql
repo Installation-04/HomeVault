@@ -200,3 +200,42 @@ CREATE TABLE IF NOT EXISTS calendar_feeds (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   last_used_at TEXT
 );
+
+-- Connections to outside services that HomeVault pulls from (a calendar subscribed by URL, a bank
+-- via an aggregator). Whatever identifies or unlocks the source (a private calendar address, an access
+-- token) lives only in config_enc, encrypted with the data key; the API never sends it back.
+CREATE TABLE IF NOT EXISTS integrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- calendar_ics | simplefin
+  name TEXT NOT NULL,
+  config_enc TEXT NOT NULL,
+  interval_minutes INTEGER NOT NULL DEFAULT 60,
+  paused INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'new', -- new | ok | error
+  last_attempt_at TEXT,
+  last_sync_at TEXT, -- last successful sync
+  next_sync_at TEXT,
+  failures INTEGER NOT NULL DEFAULT 0, -- consecutive; backs the retry interval off
+  last_error TEXT,
+  summary TEXT, -- small JSON about the last result, e.g. {"events":42}
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Events read from subscribed calendars. Replaced wholesale on every sync, so a deleted or moved
+-- event disappears here too; read-only in the app (the source calendar is the master).
+CREATE TABLE IF NOT EXISTS external_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  integration_id INTEGER NOT NULL REFERENCES integrations(id) ON DELETE CASCADE,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  uid TEXT NOT NULL,
+  title TEXT NOT NULL,
+  location TEXT,
+  description TEXT,
+  start_date TEXT NOT NULL,
+  start_time TEXT, -- NULL for all-day events
+  end_date TEXT NOT NULL,
+  end_time TEXT,
+  all_day INTEGER NOT NULL DEFAULT 0
+);

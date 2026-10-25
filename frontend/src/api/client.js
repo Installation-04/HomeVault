@@ -166,6 +166,14 @@ export const api = {
     exportCsvUrl: (propertyId, year) => `${BASE}/expenses/property/${propertyId}/export.csv${qs({ year })}`,
   },
 
+  integrations: {
+    list: (propertyId) => request(`/integrations/property/${propertyId}`),
+    create: (data) => request('/integrations', { method: 'POST', body: data }),
+    sync: (id) => request(`/integrations/${id}/sync`, { method: 'POST', body: {} }),
+    update: (id, data) => request(`/integrations/${id}`, { method: 'PATCH', body: data }),
+    remove: (id) => request(`/integrations/${id}`, { method: 'DELETE' }),
+  },
+
   calendar: {
     list: (propertyId, params) => request(`/calendar/property/${propertyId}${qs(params)}`),
     feeds: {

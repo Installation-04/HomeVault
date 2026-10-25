@@ -60,6 +60,9 @@ test('update settings are validated', () => {
   const ok = { NODE_ENV: 'test' };
   assert.deepEqual(configProblems({ ...ok, UPDATE_CHECK: 'false', UPDATE_REPO: 'Installation-04/HomeVault', UPDATE_API_BASE: 'https://api.github.com' }), []);
   assert.match(configProblems({ ...ok, UPDATE_CHECK: 'maybe' }).join(), /UPDATE_CHECK/);
+  assert.deepEqual(configProblems({ ...ok, INTEGRATIONS_ENABLED: 'false', INTEGRATIONS_ALLOW_PRIVATE_HOSTS: 'true' }), []);
+  assert.match(configProblems({ ...ok, INTEGRATIONS_ENABLED: 'off' }).join(), /INTEGRATIONS_ENABLED/);
+  assert.match(configProblems({ ...ok, INTEGRATIONS_ALLOW_PRIVATE_HOSTS: 'yes' }).join(), /INTEGRATIONS_ALLOW_PRIVATE_HOSTS/);
   assert.match(configProblems({ ...ok, UPDATE_REPO: 'not a repo' }).join(), /UPDATE_REPO/);
   assert.match(configProblems({ ...ok, UPDATE_REPO: '../../etc/passwd' }).join(), /UPDATE_REPO/);
   assert.match(configProblems({ ...ok, UPDATE_API_BASE: 'file:///etc/passwd' }).join(), /UPDATE_API_BASE/);

@@ -52,6 +52,9 @@ export function configProblems(env = process.env) {
   }
 
   if (env.UPDATE_CHECK && !['true', 'false'].includes(env.UPDATE_CHECK)) problems.push('UPDATE_CHECK must be true or false.');
+  for (const name of ['INTEGRATIONS_ENABLED', 'INTEGRATIONS_ALLOW_PRIVATE_HOSTS']) {
+    if (env[name] && !['true', 'false'].includes(env[name])) problems.push(`${name} must be true or false.`);
+  }
   if (env.UPDATE_REPO && !/^[\w.-]+\/[\w.-]+$/.test(env.UPDATE_REPO)) problems.push('UPDATE_REPO must look like owner/name.');
   if (env.UPDATE_API_BASE) {
     try {
