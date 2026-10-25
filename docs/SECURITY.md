@@ -164,7 +164,7 @@ codes, tokens — are never written to it (this is tested).
 
 ## Integrations
 
-Settings > Integrations lets an owner connect outside services (today: calendars by address, read-only).
+Settings > Integrations lets an owner connect outside services (today: calendars by address, and a bank through a SimpleFIN Bridge; both read-only).
 Pulling data from addresses that people type in is a classic way to attack a server, so:
 
 - **No reaching into your network.** The server only fetches `http(s)` addresses, with no embedded
@@ -183,6 +183,25 @@ Pulling data from addresses that people type in is a classic way to attack a ser
   administrators) can add, pause or remove a connection; everyone with access to the property sees the
   events. Each of those actions is audited.
 - **Off switch.** `INTEGRATIONS_ENABLED=false` stops all outbound syncing and refuses new connections.
+
+### Bank connections (SimpleFIN)
+
+- **One credential, kept encrypted.** The one-time setup token is traded for a read-only *access address*
+  (it holds a user name and password the bridge made up). Only that is stored: encrypted like a calendar
+  address, never returned by the API, never in logs, error messages or the audit log. It cannot move money;
+  revoking it at the bridge ends all access.
+- **The token is not wasted.** It is traded only after every other check passed. If the first read fails
+  afterwards the connection is kept in an error state so it can be retried.
+- **Credentials stay on the bridge's host.** Requests that carry the access credentials refuse any redirect to
+  a different host, and plain `http://` bridges are refused unless `INTEGRATIONS_ALLOW_PRIVATE_HOSTS=true`.
+- **Minimum necessary.** Nothing is read from any account until the owner chooses it, only the chosen accounts'
+  transactions are stored, and pending items are ignored.
+- **The bridge is untrusted input.** Its answer is validated field by field; malformed, non-numeric, pending and
+  oversized entries are skipped; its messages are length-limited and shown as plain text.
+- **Gentle on the bridge.** It allows about 24 requests a day, so the default is every 12 hours, the minimum
+  2 hours, manual syncs are spaced 10 minutes apart, and HomeVault stops itself at 20 requests in 24 hours.
+- **Audited without detail.** Connecting, pausing and changing the chosen accounts are audited (the last one as a
+  count, never account names).
 
 ## Bank statements
 
