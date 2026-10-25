@@ -2,6 +2,22 @@
 
 All notable changes to HomeVault. Versions follow [semantic versioning](https://semver.org/).
 
+## [1.1.0] - 2026-10-25
+
+Dark mode, and bringing in your calendars and bank transactions. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
+### Added
+- **Dark mode**: choose light, dark or follow your device from the header. It is remembered, does not flash on load, and printing always stays light.
+- **Calendar subscriptions by address**: show events from Google, iCloud, Outlook or any `.ics` calendar next to your reminders (read-only, refreshed on a schedule, repeating events and time zones handled).
+- **Bank statement import** (Expenses → Import from bank): upload a CSV, OFX, QFX or QIF statement, check the preview, and add what belongs to your home to Expenses from a review inbox. It detects the format, date order and columns (and tells you what it guessed), skips duplicates when you import overlapping statements, supports category rules, and can undo an import.
+- **Live bank connection through SimpleFIN** (Settings → Integrations): connect your own SimpleFIN Bridge, choose which accounts HomeVault may read, and new transactions arrive in the same inbox. Read-only; nothing becomes an expense until you accept it.
+- Settings for the new features: `INTEGRATIONS_ENABLED` and `INTEGRATIONS_ALLOW_PRIVATE_HOSTS`.
+
+### Security
+- Connection secrets (private calendar addresses, bank access addresses) are encrypted at rest, never shown again, and kept out of logs and the audit log.
+- Fetching from addresses people type in is guarded: private networks and cloud-metadata addresses are refused (checked on the connection actually made and on every redirect), responses are size- and time-limited, and requests carrying credentials are never redirected to another host.
+- Bank data is visible to property owners only, and the audit log records counts, never descriptions or amounts.
+
 ## [1.0.1] - 2026-10-25
 
 ### Fixed

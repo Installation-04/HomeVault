@@ -164,6 +164,10 @@ what you already do for other services.
 | `reminders`         | due date, `recurrence` (none/monthly/yearly/custom), lead time, optional link to a document or equipment item; remembers which due date it last emailed about |
 | `tasks`             | calendar events per property, optionally linked to a document, with recurrence |
 | `expenses`          | amount, category, `is_home_office` flag, optional receipt document link |
+| `integrations`      | connections to outside services (calendar address or bank access address, stored encrypted), schedule, status |
+| `external_events`   | events copied from subscribed calendars (replaced on every sync, read-only) |
+| `bank_transactions` | imported or synced transactions waiting in the inbox, with a duplicate fingerprint and their decision |
+| `bank_rules`        | "if the description contains X, suggest category Y (or skip it)" |
 
 Full column definitions are in `backend/src/db/schema.sql`. The schema is
 applied automatically on backend startup (`CREATE TABLE IF NOT EXISTS`, plus
@@ -240,6 +244,15 @@ database already existed), so there's no separate migration step to run.
 18. **In-app updates**: administrators are told when a new release exists and
     can install it from Settings (password confirmation required); the app
     checks GitHub for releases and can be told not to (`UPDATE_CHECK=false`)
+19. **Dark mode**: a light / dark / follow-the-system choice in the header,
+    remembered per device, with no flash on load and light-only printing
+20. **Integrations** ([guide](docs/INTEGRATIONS.md)): subscribe to Google, iCloud,
+    Outlook or any `.ics` calendar by its address (read-only, shown on the
+    Calendar page); import a bank or credit-card statement (CSV, OFX, QFX,
+    QIF) into a review inbox with category rules and duplicate protection; or
+    connect a bank through your own SimpleFIN Bridge. Nothing becomes an
+    expense until you accept it, bank data is owner-only, and the connection
+    secrets are stored encrypted
 
 ### Roles
 
