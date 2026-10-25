@@ -47,4 +47,14 @@ grep -q "That doesn't look like an email address" "$WORK/session.txt" || die "th
 grep -q "Too short" "$WORK/session.txt" || die "the short password was not rejected"
 grep -q "The two passwords differ" "$WORK/session.txt" || die "the mismatch was not detected"
 grep -q "orbit-lantern-maple-71" "$WORK/session.txt" && die "the typed password was echoed to the terminal"
+# --image auto must never leave the word "auto" behind as the image name (it once did: the download
+# step then tried to pull an image called "auto"). With no reachable release lookup it falls back to
+# building from source, which is what .env must say.
+mkdir "$WORK/inst2"
+(cd "$ROOT" && git ls-files -co --exclude-standard -z | tar --null -T - -cf -) | tar -xf - -C "$WORK/inst2"
+rm -f "$WORK/inst2/.env"
+(cd "$WORK/inst2" && UPDATE_API_BASE="http://127.0.0.1:9" ./deploy.sh install --yes --no-start --no-schedule --port 18099 --image auto >"$WORK/auto.txt" 2>&1) \
+  || { cat "$WORK/auto.txt"; die "install --image auto failed"; }
+grep -qx "HOMEVAULT_IMAGE=homevault:latest" "$WORK/inst2/.env" || die "--image auto left the wrong image in .env: $(grep '^HOMEVAULT_IMAGE=' "$WORK/inst2/.env" || echo none)"
+
 echo "Wizard checks passed."
