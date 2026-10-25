@@ -166,6 +166,21 @@ export const api = {
     exportCsvUrl: (propertyId, year) => `${BASE}/expenses/property/${propertyId}/export.csv${qs({ year })}`,
   },
 
+  bank: {
+    transactions: (propertyId, params) => request(`/bank/property/${propertyId}/transactions${qs(params)}`),
+    preview: (propertyId, form) => request(`/bank/property/${propertyId}/preview`, { method: 'POST', body: form, isForm: true }),
+    import: (propertyId, form) => request(`/bank/property/${propertyId}/import`, { method: 'POST', body: form, isForm: true }),
+    undo: (propertyId, batch) => request(`/bank/property/${propertyId}/batch/${batch}`, { method: 'DELETE' }),
+    accept: (propertyId, items) => request(`/bank/property/${propertyId}/accept`, { method: 'POST', body: { items } }),
+    ignore: (propertyId, ids) => request(`/bank/property/${propertyId}/ignore`, { method: 'POST', body: { ids } }),
+    restore: (propertyId, ids) => request(`/bank/property/${propertyId}/restore`, { method: 'POST', body: { ids } }),
+    rules: {
+      list: (propertyId) => request(`/bank/property/${propertyId}/rules`),
+      create: (propertyId, data) => request(`/bank/property/${propertyId}/rules`, { method: 'POST', body: data }),
+      remove: (id) => request(`/bank/rules/${id}`, { method: 'DELETE' }),
+    },
+  },
+
   integrations: {
     list: (propertyId) => request(`/integrations/property/${propertyId}`),
     create: (data) => request('/integrations', { method: 'POST', body: data }),

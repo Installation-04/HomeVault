@@ -2,7 +2,7 @@ import { db } from '../db/index.js';
 import { requirePropertyAccess } from './auth.js';
 import { parseId } from '../utils/http.js';
 
-const ALLOWED_TABLES = new Set(['documents', 'equipment', 'reminders', 'tasks', 'expenses', 'integrations']);
+const ALLOWED_TABLES = new Set(['documents', 'equipment', 'reminders', 'tasks', 'expenses', 'integrations', 'bank_rules']);
 
 // For routes like /:id on a table that has a property_id column: loads the
 // row into req.resource (404 if missing), then enforces the usual property

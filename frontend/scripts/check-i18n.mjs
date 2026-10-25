@@ -57,6 +57,8 @@ const DYNAMIC = {
   'search.group_': ['documents', 'equipment', 'reminders', 'tasks', 'expenses'],
   'theme.': ['system', 'light', 'dark'],
   'integrations.status_': ['ok', 'error', 'paused'],
+  'bank.tab_': ['new', 'imported', 'ignored'],
+  'bank.date_': ['dmy', 'mdy', 'ymd'],
 };
 for (const [prefix, values] of Object.entries(DYNAMIC)) {
   for (const v of values) if (!(`${prefix}${v}` in en)) problems.push(`missing dynamic key "${prefix}${v}"`);
