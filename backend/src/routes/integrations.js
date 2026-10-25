@@ -35,6 +35,7 @@ integrationsRouter.post(
 integrationsRouter.patch('/:id', withResourceAccess('integrations', 'owner'), (req, res) => {
   const updated = updateIntegration(req.resource, req.body ?? {});
   if (updated.paused !== Boolean(req.resource.paused)) audit(req, updated.paused ? 'integration_paused' : 'integration_resumed', { target: String(req.resource.id) });
+  if (req.body?.accounts !== undefined) audit(req, 'integration_accounts', { target: String(req.resource.id), detail: { count: updated.selected_accounts?.length ?? 0 } });
   res.json(updated);
 });
 

@@ -7,7 +7,7 @@ import { withResourceAccess } from '../middleware/resource.js';
 import { audit } from '../utils/audit.js';
 import { httpError, wrap } from '../utils/http.js';
 import { LIMITS, parseStatement } from '../integrations/bank/parse.js';
-import { acceptTransactions, countKnown, createRule, ignoreTransactions, importTransactions, listRules, listTransactions, restoreTransactions, undoBatch } from '../integrations/bank/store.js';
+import { acceptTransactions, countKnown, createRule, defaultCurrency, ignoreTransactions, importTransactions, listRules, listTransactions, restoreTransactions, undoBatch } from '../integrations/bank/store.js';
 
 // Bank statements and the review inbox. Owners only: the raw descriptions of every purchase are more
 // sensitive than the expense totals everyone with access can already see.
@@ -47,11 +47,6 @@ function readOptions(req) {
     options.mapping = mapping;
   }
   return options;
-}
-
-function defaultCurrency(propertyId) {
-  const row = db.prepare('SELECT currency FROM expenses WHERE property_id = ? GROUP BY currency ORDER BY COUNT(*) DESC LIMIT 1').get(propertyId);
-  return row?.currency || 'CAD';
 }
 
 function parseUpload(req) {
