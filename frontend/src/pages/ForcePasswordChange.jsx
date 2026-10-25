@@ -33,7 +33,7 @@ export default function ForcePasswordChange() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <form onSubmit={submit} className="w-full max-w-sm bg-white p-6 rounded-lg shadow space-y-3">
+      <form onSubmit={submit} className="w-full max-w-sm bg-surface p-6 rounded-lg shadow space-y-3">
         <h1 className="text-xl font-bold text-brand-700">{t('force.title')}</h1>
         <p className="text-sm text-gray-600">{t('force.intro', { name: user.name })}</p>
         <div>

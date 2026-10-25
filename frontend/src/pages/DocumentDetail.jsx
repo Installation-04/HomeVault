@@ -104,7 +104,7 @@ export default function DocumentDetail() {
               {doc.file_name} · {formatBytes(doc.file_size)}
             </p>
             <div className="flex flex-wrap gap-3 text-sm">
-              <a href={api.documents.downloadUrl(doc.id)} className="px-3 py-2 rounded bg-brand-600 text-white hover:bg-brand-700">
+              <a href={api.documents.downloadUrl(doc.id)} className="px-3 py-2 rounded bg-brand-600 text-white hover:bg-brand-hover">
                 {t('documents.download')}
               </a>
               <button onClick={() => setShowQr(true)} className={btnSecondary}>{t('documents.qr')}</button>

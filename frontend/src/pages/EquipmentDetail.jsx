@@ -215,7 +215,7 @@ export default function EquipmentDetail() {
               <label className={label} htmlFor="eq-price">{t('equipment.purchase_price')}</label>
               <div className="flex gap-2">
                 <input id="eq-price" type="number" min="0" step="0.01" inputMode="decimal" className={input} value={form.purchase_price} onChange={(e) => set({ purchase_price: e.target.value })} />
-                <select aria-label={t('expenses.currency')} className="border rounded px-2 bg-white" value={form.purchase_currency} onChange={(e) => set({ purchase_currency: e.target.value })}>
+                <select aria-label={t('expenses.currency')} className="border rounded px-2 bg-surface" value={form.purchase_currency} onChange={(e) => set({ purchase_currency: e.target.value })}>
                   {[...new Set([...CURRENCIES, form.purchase_currency])].map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -292,7 +292,7 @@ export default function EquipmentDetail() {
                 {canEdit && (
                   <button
                     onClick={() => removePhoto(p.id)}
-                    className="absolute -top-2 -right-2 bg-white border rounded-full w-6 h-6 text-xs text-red-600 shadow"
+                    className="absolute -top-2 -right-2 bg-surface border rounded-full w-6 h-6 text-xs text-red-600 shadow"
                     aria-label={t('common.delete')}
                   >
                     ✕
@@ -366,7 +366,7 @@ export default function EquipmentDetail() {
                       disabled={exists}
                       onClick={() => addPreset(preset)}
                       title={exists ? t('equipment.already_scheduled') : ''}
-                      className="text-sm px-3 py-1.5 rounded border bg-white hover:bg-brand-50 disabled:opacity-50 disabled:hover:bg-white"
+                      className="text-sm px-3 py-1.5 rounded border bg-surface hover:bg-brand-50 disabled:opacity-50 disabled:hover:bg-surface"
                     >
                       {exists ? '✓' : '+'} {t(`presets.${preset.key}`)}
                       <span className="text-xs text-gray-400"> · {preset.recurrence === 'yearly' ? t('recurrence.yearly') : t('presets.every_days', { count: preset.interval })}</span>

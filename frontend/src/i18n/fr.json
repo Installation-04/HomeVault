@@ -437,5 +437,12 @@
   "update.dismiss": "Ignorer",
   "update.version_label": "HomeVault v{{version}}",
   "audit.update_requested": "Mise à jour du logiciel demandée",
-  "audit.update_finished": "Mise à jour du logiciel terminée"
+  "audit.update_finished": "Mise à jour du logiciel terminée",
+  "theme.label": "Apparence",
+  "theme.system": "Suivre cet appareil",
+  "theme.light": "Clair",
+  "theme.dark": "Sombre",
+  "theme.hint": "Mémorisé sur cet appareil seulement.",
+  "theme.switch_to_dark": "Passer en mode sombre",
+  "theme.switch_to_light": "Passer en mode clair"
 }

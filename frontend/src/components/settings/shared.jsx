@@ -43,7 +43,7 @@ export function CopyButton({ text, label }) {
     }
   };
   return (
-    <button type="button" onClick={copy} className="text-xs px-2 py-1 rounded border bg-white hover:bg-gray-50">
+    <button type="button" onClick={copy} className="text-xs px-2 py-1 rounded border bg-surface hover:bg-gray-50">
       {copied ? `✓ ${t('common.copied')}` : label || t('common.copy')}
     </button>
   );

@@ -48,10 +48,10 @@ export default function CalendarLinksSection() {
       {created && (
         <div role="status" className="mb-4 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm space-y-2">
           <p className="font-medium text-emerald-900">{t('feeds.created')}</p>
-          <p className="font-mono text-xs break-all select-all bg-white rounded border p-2">{created}</p>
+          <p className="font-mono text-xs break-all select-all bg-surface rounded border p-2">{created}</p>
           <div className="flex flex-wrap gap-2 items-center">
             <CopyButton text={created} />
-            <a href={webcal} className="text-xs px-2 py-1 rounded border bg-white hover:bg-gray-50">{t('feeds.open_in_calendar')}</a>
+            <a href={webcal} className="text-xs px-2 py-1 rounded border bg-surface hover:bg-gray-50">{t('feeds.open_in_calendar')}</a>
             <button type="button" className="text-xs text-gray-500 hover:underline ml-auto" onClick={() => setCreated(null)}>{t('common.done')}</button>
           </div>
           <p className="text-xs text-emerald-900">{t('feeds.once_warning')}</p>

@@ -32,7 +32,7 @@ function RecoveryCodes({ codes, onDone }) {
       </ul>
       <div className="flex gap-2">
         <CopyButton text={text} />
-        <button type="button" onClick={download} className="text-xs px-2 py-1 rounded border bg-white hover:bg-gray-50">
+        <button type="button" onClick={download} className="text-xs px-2 py-1 rounded border bg-surface hover:bg-gray-50">
           {t('twofactor.download')}
         </button>
       </div>
@@ -112,7 +112,7 @@ function EnableFlow({ onClose, onEnabled }) {
           }}
         >
           <p className="text-gray-700">{t('twofactor.scan')}</p>
-          <div className="flex justify-center bg-white p-3 border rounded">
+          <div className="flex justify-center bg-surface p-3 border rounded">
             {/* Generated in the browser: the secret is never sent to a QR-code service. */}
             <QRCodeSVG value={setup.otpauth_url} size={176} level="M" role="img" aria-label={t('twofactor.qr_label')} />
           </div>

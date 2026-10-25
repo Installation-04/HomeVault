@@ -103,7 +103,7 @@ function ItemForm({ initial, editing, equipment, onSave, onCancel }) {
               key={k}
               onClick={() => set({ kind: k })}
               aria-pressed={form.kind === k}
-              className={`px-3 py-1.5 ${form.kind === k ? 'bg-brand-600 text-white' : 'bg-white hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 ${form.kind === k ? 'bg-brand-600 text-white' : 'bg-surface hover:bg-gray-50'}`}
             >
               {t(`calendar.type_${k}`)}
             </button>
@@ -261,7 +261,7 @@ function Group({ title, tone, items, ...rowProps }) {
       <h3 className={`text-sm font-semibold mb-1 ${tone === 'danger' ? 'text-red-700' : 'text-gray-700'}`}>
         {title} <span className="text-gray-400 font-normal">({items.length})</span>
       </h3>
-      <ul className="bg-white rounded-lg shadow divide-y">
+      <ul className="bg-surface rounded-lg shadow divide-y">
         {items.map((item) => (
           <ItemRow key={item.key} item={item} {...rowProps} />
         ))}
@@ -285,7 +285,7 @@ function ListView({ items, showCompleted, ...rowProps }) {
 
   return (
     <div>
-      {nothing && <p className="text-sm text-gray-400 bg-white rounded-lg shadow p-4">{t('calendar.nothing')}</p>}
+      {nothing && <p className="text-sm text-gray-400 bg-surface rounded-lg shadow p-4">{t('calendar.nothing')}</p>}
       {groups.map(([title, tone, list]) => (
         <Group key={title} title={title} tone={tone} items={list} today={today} {...rowProps} />
       ))}
@@ -336,7 +336,7 @@ function MonthView({ items, showCompleted, cursor, setCursor, selected, setSelec
 
   const chipClass = ({ item, projected }) => {
     if (item.completed_at) return 'bg-gray-100 text-gray-400 line-through';
-    if (projected) return 'border border-dashed border-brand-500 text-brand-700 bg-white';
+    if (projected) return 'border border-dashed border-brand-500 text-brand-700 bg-surface';
     if (item.date < today) return 'bg-red-100 text-red-700';
     return item.kind === 'reminder' ? 'bg-brand-100 text-brand-700' : 'bg-sky-100 text-sky-800';
   };
@@ -373,7 +373,7 @@ function MonthView({ items, showCompleted, cursor, setCursor, selected, setSelec
               aria-label={`${formatDate(date, locale)}${entries.length ? `, ${entries.length}` : ''}`}
               aria-pressed={isSelected}
               className={`min-h-[3.25rem] sm:min-h-[5.5rem] p-1 text-left align-top flex flex-col gap-0.5 ${
-                inMonth ? 'bg-white' : 'bg-gray-50 text-gray-400'
+                inMonth ? 'bg-surface' : 'bg-gray-50 text-gray-400'
               } ${isSelected ? 'ring-2 ring-inset ring-brand-500' : 'hover:bg-brand-50'}`}
             >
               <span className={`text-xs w-5 h-5 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-600 text-white' : ''}`}>
@@ -409,9 +409,9 @@ function MonthView({ items, showCompleted, cursor, setCursor, selected, setSelec
             )}
           </div>
           {selectedEntries.length === 0 ? (
-            <p className="text-sm text-gray-400 bg-white rounded-lg shadow p-3">{t('calendar.no_events_day')}</p>
+            <p className="text-sm text-gray-400 bg-surface rounded-lg shadow p-3">{t('calendar.no_events_day')}</p>
           ) : (
-            <ul className="bg-white rounded-lg shadow divide-y">
+            <ul className="bg-surface rounded-lg shadow divide-y">
               {selectedEntries.map(({ item, projected }) =>
                 projected ? (
                   <li key={`${item.key}-p`} className="p-3 text-sm text-gray-500">
@@ -518,7 +518,7 @@ export default function Calendar() {
               key={v}
               onClick={() => chooseView(v)}
               aria-pressed={view === v}
-              className={`px-3 py-1.5 ${view === v ? 'bg-brand-600 text-white' : 'bg-white hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 ${view === v ? 'bg-brand-600 text-white' : 'bg-surface hover:bg-gray-50'}`}
             >
               {t(`calendar.view_${v}`)}
             </button>

@@ -92,7 +92,7 @@ export default function SearchPalette({ onClose }) {
       className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-3 sm:pt-[12vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div role="dialog" aria-modal="true" aria-label={t('search.title')} className="bg-white w-full max-w-xl rounded-lg shadow-xl overflow-hidden self-start" onKeyDown={onKeyDown}>
+      <div role="dialog" aria-modal="true" aria-label={t('search.title')} className="bg-surface w-full max-w-xl rounded-lg shadow-xl overflow-hidden self-start" onKeyDown={onKeyDown}>
         <div className="flex items-center gap-2 px-3 border-b">
           <span aria-hidden="true">🔍</span>
           <input

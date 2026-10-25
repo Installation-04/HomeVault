@@ -2,8 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Colour themes. The light values are Tailwind's default palette; `.dark` (set on <html> by
+   src/theme.js and public/theme-init.js) swaps in a dark set. Scales are meant by role, not by
+   literal shade: gray-50 is the page, surface is a card, gray-900 is body text, brand-700 is
+   link text, brand-50/100 are tinted backgrounds, red/amber/emerald/sky 50-200 are alert
+   backgrounds and 600-900 their text. Values are "R G B" so opacity modifiers keep working. */
+:root,
+.force-light {
+  color-scheme: light;
+  --surface: 255 255 255;
+
+  --gray-50: 249 250 251;  --gray-100: 243 244 246; --gray-200: 229 231 235; --gray-300: 209 213 219; --gray-400: 156 163 175;
+  --gray-500: 107 114 128; --gray-600: 75 85 99;    --gray-700: 55 65 81;    --gray-800: 31 41 55;    --gray-900: 17 24 39;
+
+  --brand-50: 240 253 250; --brand-100: 204 251 241; --brand-200: 153 246 228; --brand-300: 94 234 212; --brand-400: 45 212 191;
+  --brand-500: 20 184 166; --brand-600: 13 148 136;  --brand-700: 15 118 110;  --brand-800: 17 94 89;    --brand-900: 19 78 74;
+
+  --red-50: 254 242 242;   --red-100: 254 226 226;  --red-200: 254 202 202;  --red-300: 252 165 165;  --red-400: 248 113 113;
+  --red-500: 239 68 68;    --red-600: 220 38 38;    --red-700: 185 28 28;    --red-800: 153 27 27;    --red-900: 127 29 29;
+
+  --amber-50: 255 251 235; --amber-100: 254 243 199; --amber-200: 253 230 138; --amber-300: 252 211 77; --amber-400: 251 191 36;
+  --amber-500: 245 158 11; --amber-600: 217 119 6;   --amber-700: 180 83 9;   --amber-800: 146 64 14;  --amber-900: 120 53 15;
+
+  --emerald-50: 236 253 245; --emerald-100: 209 250 229; --emerald-200: 167 243 208; --emerald-300: 110 231 183; --emerald-400: 52 211 153;
+  --emerald-500: 16 185 129; --emerald-600: 5 150 105;   --emerald-700: 4 120 87;    --emerald-800: 6 95 70;     --emerald-900: 6 78 59;
+
+  --sky-50: 240 249 255;   --sky-100: 224 242 254;  --sky-200: 186 230 253;  --sky-300: 125 211 252;  --sky-400: 56 189 248;
+  --sky-500: 14 165 233;   --sky-600: 2 132 199;    --sky-700: 3 105 161;    --sky-800: 7 89 133;     --sky-900: 12 74 110;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --surface: 19 28 46;
+
+  --gray-50: 11 17 32;     --gray-100: 27 39 64;    --gray-200: 42 55 83;    --gray-300: 59 74 105;   --gray-400: 125 138 165;
+  --gray-500: 150 162 187; --gray-600: 174 184 204; --gray-700: 197 205 220; --gray-800: 219 225 236; --gray-900: 238 241 247;
+
+  /* 500 and 600 stay put: solid buttons and checkboxes use them with white text. */
+  --brand-50: 13 42 40;    --brand-100: 18 58 55;   --brand-200: 20 78 72;   --brand-300: 45 160 148;  --brand-400: 45 212 191;
+  --brand-500: 20 184 166; --brand-600: 13 148 136; --brand-700: 94 234 212; --brand-800: 153 246 228; --brand-900: 204 251 241;
+
+  --red-50: 58 22 24;      --red-100: 74 28 31;     --red-200: 107 42 46;    --red-300: 150 60 66;    --red-400: 248 113 113;
+  --red-500: 248 113 113;  --red-600: 248 113 113;  --red-700: 252 165 165;  --red-800: 254 202 202;  --red-900: 254 226 226;
+
+  --amber-50: 43 34 8;     --amber-100: 58 45 11;   --amber-200: 92 74 18;   --amber-300: 130 104 26;  --amber-400: 251 191 36;
+  --amber-500: 251 191 36; --amber-600: 252 211 77; --amber-700: 252 211 77; --amber-800: 253 230 138; --amber-900: 254 243 199;
+
+  --emerald-50: 11 42 33;  --emerald-100: 16 56 44; --emerald-200: 29 90 71; --emerald-300: 40 128 100; --emerald-400: 52 211 153;
+  --emerald-500: 52 211 153; --emerald-600: 110 231 183; --emerald-700: 110 231 183; --emerald-800: 167 243 208; --emerald-900: 209 250 229;
+
+  --sky-50: 10 36 56;      --sky-100: 12 51 80;     --sky-200: 18 76 116;    --sky-300: 30 110 160;   --sky-400: 56 189 248;
+  --sky-500: 56 189 248;   --sky-600: 125 211 252;  --sky-700: 125 211 252;  --sky-800: 186 230 253;  --sky-900: 224 242 254;
+}
+
 body {
   @apply bg-gray-50 text-gray-900;
+}
+
+/* Native dropdowns and text areas that have no classes of their own would otherwise keep the
+   browser's default grey in the dark theme. */
+@layer base {
+  select,
+  textarea {
+    @apply bg-surface text-gray-900;
+  }
+}
+
+/* Cards are separated from the page by a shadow in the light theme, which is invisible on dark. */
+:root.dark .shadow {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.07);
 }
 
 /* Printing a QR code (e.g. for a physical document label) should show only

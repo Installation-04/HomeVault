@@ -8,7 +8,7 @@ export default function BackupSection() {
     <section className={card}>
       <h2 className="font-semibold">{t('backup.title')}</h2>
       <p className="text-xs text-gray-500 mt-1">{t('backup.summary')}</p>
-      <a href={api.admin.backupUrl()} className="inline-block mt-3 px-3 py-2 rounded text-sm border bg-white hover:bg-gray-50">
+      <a href={api.admin.backupUrl()} className="inline-block mt-3 px-3 py-2 rounded text-sm border bg-surface hover:bg-gray-50">
         {t('backup.download')}
       </a>
       <p className="text-xs text-amber-800 mt-3">⚠ {t('backup.sensitive')}</p>

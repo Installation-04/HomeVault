@@ -154,7 +154,7 @@ export default function UpdateSection() {
             <div className="text-sm bg-amber-50 border border-amber-200 rounded p-3 space-y-2">
               <p>{t('update.no_updater')}</p>
               <p className="flex items-center gap-2">
-                <code className="bg-white border rounded px-2 py-1 text-xs">{command}</code>
+                <code className="bg-surface border rounded px-2 py-1 text-xs">{command}</code>
                 <CopyButton text={command} />
               </p>
             </div>
@@ -202,7 +202,7 @@ function FailedResult({ status }) {
       {status.log?.length > 0 && (
         <details className="mt-2">
           <summary className="cursor-pointer text-xs">{t('update.log')}</summary>
-          <pre className="mt-1 whitespace-pre-wrap break-words text-[11px] bg-white border rounded p-2 max-h-48 overflow-y-auto">{status.log.join('\n')}</pre>
+          <pre className="mt-1 whitespace-pre-wrap break-words text-[11px] bg-surface border rounded p-2 max-h-48 overflow-y-auto">{status.log.join('\n')}</pre>
         </details>
       )}
     </div>
