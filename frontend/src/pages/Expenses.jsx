@@ -271,7 +271,7 @@ export default function Expenses() {
       <ErrorBox error={error || actionError} onRetry={error ? reload : undefined} />
       {data && <Summary expenses={expenses} locale={locale} t={t} />}
 
-      <div className="bg-white rounded-lg shadow divide-y">
+      <div className="bg-surface rounded-lg shadow divide-y">
         {expenses.map((e) => (
           <div key={e.id} className="p-3 flex justify-between items-center gap-2 text-sm">
             <div className="min-w-0">

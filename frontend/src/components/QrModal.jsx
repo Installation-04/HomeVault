@@ -51,7 +51,7 @@ export default function QrModal({ value, title, subtitle, code, meta = [], onClo
   return (
     <div className="qr-modal fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 print:bg-white" onClick={onClose}>
       <div
-        className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center print:shadow-none print:p-0 print:rounded-none print:max-w-none"
+        className="bg-surface rounded-lg shadow-lg p-6 max-w-sm w-full text-center print:shadow-none print:p-0 print:rounded-none print:max-w-none"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="font-semibold text-brand-700 mb-3 print:hidden">{title}</h3>
@@ -64,7 +64,7 @@ export default function QrModal({ value, title, subtitle, code, meta = [], onClo
             screen too (browsers render physical units at ~96dpi), and
             matches the printed @page exactly. */}
         <div
-          className={`mx-auto flex flex-col items-center justify-center gap-1 ${sizeMm ? '' : 'py-2'}`}
+          className={`force-light bg-white text-gray-900 mx-auto flex flex-col items-center justify-center gap-1 ${sizeMm ? '' : 'py-2'}`}
           style={sizeMm ? { width: `${sizeMm.w}mm`, height: `${sizeMm.h}mm`, padding: '1.5mm', boxSizing: 'border-box' } : undefined}
         >
           <QRCodeSVG value={value} size={qrSizePx} marginSize={1} />
@@ -134,7 +134,7 @@ export default function QrModal({ value, title, subtitle, code, meta = [], onClo
             <button onClick={() => window.print()} className="text-sm px-3 py-1.5 rounded border hover:bg-gray-50">
               {t('qr.print')}
             </button>
-            <button onClick={onClose} className="text-sm px-3 py-1.5 rounded bg-brand-600 text-white hover:bg-brand-700">
+            <button onClick={onClose} className="text-sm px-3 py-1.5 rounded bg-brand-600 text-white hover:bg-brand-hover">
               {t('common.cancel')}
             </button>
           </div>

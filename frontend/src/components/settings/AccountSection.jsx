@@ -4,6 +4,7 @@ import { api } from '../../api/client.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { btnPrimary, btnSecondary, card, input, label } from '../ui.js';
 import { Feedback, useAction } from './shared.jsx';
+import { THEMES, useTheme } from '../../theme.js';
 
 export default function AccountSection() {
   const { t, i18n } = useTranslation();
@@ -13,6 +14,7 @@ export default function AccountSection() {
   const [pw, setPw] = useState({ current_password: '', new_password: '', confirm: '' });
   const [pwState, runPw] = useAction();
   const [mismatch, setMismatch] = useState(false);
+  const { preference: themePreference, setPreference: setTheme } = useTheme();
 
   const saveProfile = (e) => {
     e.preventDefault();
@@ -57,6 +59,15 @@ export default function AccountSection() {
             <option value="fr">Français</option>
           </select>
           <p className="text-xs text-gray-400 mt-1">{t('settings.language_hint')}</p>
+        </div>
+        <div>
+          <label className={label} htmlFor="me-theme">{t('theme.label')}</label>
+          <select id="me-theme" className={input} value={themePreference} onChange={(e) => setTheme(e.target.value)}>
+            {THEMES.map((value) => (
+              <option key={value} value={value}>{t(`theme.${value}`)}</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">{t('theme.hint')}</p>
         </div>
         <div className="sm:col-span-2 flex items-center gap-3">
           <button className={btnSecondary} disabled={profile.busy || name.trim() === user.name}>{t('common.save')}</button>

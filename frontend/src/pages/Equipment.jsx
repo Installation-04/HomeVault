@@ -110,7 +110,7 @@ export default function Equipment() {
       </div>
 
       {showForm && canEdit && (
-        <form onSubmit={submit} className="bg-white rounded-lg shadow p-4 mb-4 grid gap-3 sm:grid-cols-2 text-sm">
+        <form onSubmit={submit} className="bg-surface rounded-lg shadow p-4 mb-4 grid gap-3 sm:grid-cols-2 text-sm">
           <div>
             <label className={label} htmlFor="q-name">{t('equipment.name')}</label>
             <input id="q-name" className={input} value={form.name} onChange={(e) => set({ name: e.target.value })} required autoFocus />
@@ -151,7 +151,7 @@ export default function Equipment() {
             <label className={label} htmlFor="q-price">{t('equipment.purchase_price')}</label>
             <div className="flex gap-2">
               <input id="q-price" type="number" min="0" step="0.01" inputMode="decimal" className={input} value={form.purchase_price} onChange={(e) => set({ purchase_price: e.target.value })} />
-              <select aria-label={t('expenses.currency')} className="border rounded px-2 bg-white" value={form.purchase_currency} onChange={(e) => set({ purchase_currency: e.target.value })}>
+              <select aria-label={t('expenses.currency')} className="border rounded px-2 bg-surface" value={form.purchase_currency} onChange={(e) => set({ purchase_currency: e.target.value })}>
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -187,7 +187,7 @@ export default function Equipment() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
-          <div key={item.id} className="bg-white rounded-lg shadow p-3 flex gap-3 items-center">
+          <div key={item.id} className="bg-surface rounded-lg shadow p-3 flex gap-3 items-center">
             {item.cover_photo_id ? (
               <img
                 src={api.equipment.photoUrl(item.id, item.cover_photo_id)}

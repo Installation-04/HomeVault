@@ -55,6 +55,7 @@ const DYNAMIC = {
   'audit.': backendAuditActions(),
   'presets.': PRESET_KEYS,
   'search.group_': ['documents', 'equipment', 'reminders', 'tasks', 'expenses'],
+  'theme.': ['system', 'light', 'dark'],
 };
 for (const [prefix, values] of Object.entries(DYNAMIC)) {
   for (const v of values) if (!(`${prefix}${v}` in en)) problems.push(`missing dynamic key "${prefix}${v}"`);

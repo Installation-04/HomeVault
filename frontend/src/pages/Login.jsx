@@ -84,7 +84,7 @@ export default function Login() {
       className="min-h-screen flex items-center justify-center bg-gray-50 px-4"
       style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="w-full max-w-sm bg-white p-6 rounded-lg shadow">
+      <div className="w-full max-w-sm bg-surface p-6 rounded-lg shadow">
         <h1 className="text-xl font-bold text-brand-700 mb-1">HomeVault</h1>
         <p className="text-sm text-gray-500 mb-4">{title}</p>
 

@@ -58,7 +58,7 @@ function UploadForm({ propertyId, onDone, onCancel }) {
   };
 
   return (
-    <form onSubmit={submit} className="bg-white rounded-lg shadow p-4 mb-4 grid gap-3 sm:grid-cols-2 text-sm">
+    <form onSubmit={submit} className="bg-surface rounded-lg shadow p-4 mb-4 grid gap-3 sm:grid-cols-2 text-sm">
       <div className="flex flex-wrap gap-2 items-center sm:col-span-2">
         <input
           key={`f${fileKey}`}
@@ -203,7 +203,7 @@ export default function Documents() {
 
       <ErrorBox error={error || actionError} onRetry={error ? reload : undefined} />
 
-      <div className="bg-white rounded-lg shadow divide-y">
+      <div className="bg-surface rounded-lg shadow divide-y">
         {documents.map((d) => (
           <div key={d.id} className="p-3 flex items-center justify-between gap-2">
             <Link to={`/documents/${d.id}`} className="min-w-0">

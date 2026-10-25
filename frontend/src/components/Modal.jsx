@@ -37,10 +37,10 @@ export default function Modal({ title, onClose, children, wide = false }) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`bg-white w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} rounded-t-xl sm:rounded-lg shadow-xl max-h-[90vh] overflow-y-auto`}
+        className={`bg-surface w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} rounded-t-xl sm:rounded-lg shadow-xl max-h-[90vh] overflow-y-auto`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white">
+        <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-surface">
           <h2 className="font-semibold">{title}</h2>
           <button data-modal-close onClick={() => closeRef.current()} className="text-gray-500 hover:text-gray-800 text-xl leading-none" aria-label={t('common.close')}>
             ×

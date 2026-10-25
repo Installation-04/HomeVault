@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext.jsx';
 import PropertySwitcher from './PropertySwitcher.jsx';
 import InstallPrompt from './InstallPrompt.jsx';
+import { useTheme } from '../theme.js';
 
 const SearchPalette = lazy(() => import('./SearchPalette.jsx'));
 
@@ -38,6 +39,13 @@ const icons = {
       <path d="m20 20-3.5-3.5" />
     </>
   ),
+  moon: <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />,
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </>
+  ),
   settings: (
     <>
       <circle cx="12" cy="12" r="3" />
@@ -59,6 +67,7 @@ export default function Layout({ children }) {
   const { user, logout, updateProfile } = useAuth();
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const { resolved: theme, setPreference: setTheme } = useTheme();
 
   // Administrators are told when a newer release exists (one quiet request per page load;
   // the server remembers GitHub's answer for hours). A dismissed version stays dismissed.
@@ -118,7 +127,7 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header
-        className="bg-white border-b sticky top-0 z-10"
+        className="bg-surface border-b sticky top-0 z-10"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
@@ -132,7 +141,7 @@ export default function Layout({ children }) {
               <NavLink to="/expenses" className={navItem}>{t('nav.expenses')}</NavLink>
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:gap-x-3">
             <PropertySwitcher />
             <select
               className="text-sm border rounded px-1 py-1"
@@ -151,6 +160,15 @@ export default function Layout({ children }) {
               className="p-1 rounded text-gray-500 hover:text-brand-700"
             >
               <TabIcon name="search" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label={t(theme === 'dark' ? 'theme.switch_to_light' : 'theme.switch_to_dark')}
+              title={t(theme === 'dark' ? 'theme.switch_to_light' : 'theme.switch_to_dark')}
+              className="p-1 rounded text-gray-500 hover:text-brand-700"
+            >
+              <TabIcon name={theme === 'dark' ? 'sun' : 'moon'} />
             </button>
             <NavLink
               to="/settings"
@@ -191,7 +209,7 @@ export default function Layout({ children }) {
       {/* Mobile bottom tab bar — the primary nav on phones, where a cramped
           top row of text links doesn't hold up under one-handed use. */}
       <nav
-        className="sm:hidden fixed bottom-0 inset-x-0 z-10 bg-white border-t flex"
+        className="sm:hidden fixed bottom-0 inset-x-0 z-10 bg-surface border-t flex"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <NavLink to="/" end className={tabItem}>

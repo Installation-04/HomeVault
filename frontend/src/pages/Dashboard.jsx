@@ -45,7 +45,7 @@ function PropertyCard({ p }) {
     p.overdue_reminders.length + p.upcoming_reminders.length + p.expiring_documents.length + p.expiring_equipment.length;
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-surface rounded-lg shadow p-4 min-w-0">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="font-semibold text-brand-700 truncate">{p.name}</h2>
