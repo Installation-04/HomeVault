@@ -10,7 +10,7 @@
     "check:i18n": "node scripts/check-i18n.mjs"
   },
   "dependencies": {
-    "i18next": "^26.5.10",
+    "i18next": "^26.5.11",
     "qrcode.react": "^4.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
